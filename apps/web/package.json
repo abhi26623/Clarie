@@ -1,0 +1,36 @@
+{
+  "name": "web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@trpc/server": "^11.0.0-rc.553",
+    "@trpc/client": "^11.0.0-rc.553",
+    "@trpc/react-query": "^11.0.0-rc.553",
+    "@tanstack/react-query": "^5.59.0",
+    "superjson": "^2.2.1",
+    "better-auth": "^1.1.0",
+    "inngest": "^3.22.0",
+    "@shipflow/api": "workspace:*",
+    "@shipflow/auth": "workspace:*",
+    "@shipflow/db": "workspace:*",
+    "@shipflow/jobs": "workspace:*",
+    "@shipflow/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "@types/react": "^18.3.10",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.6.2"
+  }
+}

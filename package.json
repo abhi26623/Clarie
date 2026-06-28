@@ -1,0 +1,19 @@
+{
+  "name": "shipflow",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "db:generate": "pnpm --filter @shipflow/db db:generate",
+    "db:push": "pnpm --filter @shipflow/db db:push",
+    "db:seed": "pnpm --filter @shipflow/db db:seed",
+    "auth:generate": "pnpm --filter @shipflow/auth auth:generate"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.3",
+    "typescript": "^5.6.2"
+  }
+}
