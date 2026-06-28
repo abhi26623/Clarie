@@ -1,5 +1,5 @@
 {
-  "name": "@shipflow/api",
+  "name": "@claire/api",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,9 +9,9 @@
   "scripts": { "typecheck": "tsc --noEmit" },
   "dependencies": {
     "@trpc/server": "^11.0.0-rc.553",
-    "@shipflow/db": "workspace:*",
-    "@shipflow/auth": "workspace:*",
-    "@shipflow/jobs": "workspace:*",
+    "@claire/db": "workspace:*",
+    "@claire/auth": "workspace:*",
+    "@claire/jobs": "workspace:*",
     "drizzle-orm": "^0.33.0",
     "zod": "^3.23.8",
     "superjson": "^2.2.1"

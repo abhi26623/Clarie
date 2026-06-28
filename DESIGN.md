@@ -102,7 +102,7 @@ Shadow max blur: `8px`. Use `--shadow-sm` (4px) for default card elevation.
 - Leading 5px dot; dot pulses (`badge__dot--pulse`) on in-flight states
 - Seven semantic tiers, each owning `bg / fg / border-color` via CSS custom properties
 - Color is never the sole signal — text label always present (`title` attribute for a11y)
-- Import: `import { StatusBadge } from "@shipflow/ui"`
+- Import: `import { StatusBadge } from "@claire/ui"`
 
 ### shadcn mapping
 

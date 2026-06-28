@@ -1,4 +1,4 @@
-import { db, workflowSteps } from "@shipflow/db";
+import { db, workflowSteps } from "@claire/db";
 
 /**
  * Wrap every workflow body. On any throw, write a TERMINAL "failed" workflowSteps

@@ -1,6 +1,6 @@
 "use client";
 import { trpc } from "@/lib/trpc";
-import { useSession, signOut } from "@shipflow/auth/client";
+import { useSession, signOut } from "@claire/auth/client";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 

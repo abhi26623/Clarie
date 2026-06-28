@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@shipflow/api", "@shipflow/auth", "@shipflow/db", "@shipflow/jobs", "@shipflow/ai", "@shipflow/config", "@shipflow/ui"],
+  transpilePackages: ["@claire/api", "@claire/auth", "@claire/db", "@claire/jobs", "@claire/ai", "@claire/config", "@claire/ui"],
 };
 export default nextConfig;

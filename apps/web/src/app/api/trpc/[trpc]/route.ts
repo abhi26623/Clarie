@@ -1,5 +1,5 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-import { appRouter, createContext } from "@shipflow/api";
+import { appRouter, createContext } from "@claire/api";
 
 const handler = (req: Request) =>
   fetchRequestHandler({

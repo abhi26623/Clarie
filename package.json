@@ -1,5 +1,5 @@
 {
-  "name": "shipflow",
+  "name": "claire",
   "private": true,
   "packageManager": "pnpm@9.12.0",
   "scripts": {
@@ -7,10 +7,10 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "db:generate": "pnpm --filter @shipflow/db db:generate",
-    "db:push": "pnpm --filter @shipflow/db db:push",
-    "db:seed": "pnpm --filter @shipflow/db db:seed",
-    "auth:generate": "pnpm --filter @shipflow/auth auth:generate"
+    "db:generate": "pnpm --filter @claire/db db:generate",
+    "db:push": "pnpm --filter @claire/db db:push",
+    "db:seed": "pnpm --filter @claire/db db:seed",
+    "auth:generate": "pnpm --filter @claire/auth auth:generate"
   },
   "devDependencies": {
     "turbo": "^2.1.3",

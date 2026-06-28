@@ -1,5 +1,5 @@
 {
-  "name": "@shipflow/ai",
+  "name": "@claire/ai",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "ai": "^3.4.0",
     "@openrouter/ai-sdk-provider": "^0.0.6",
     "zod": "^3.23.8",
-    "@shipflow/config": "workspace:*"
+    "@claire/config": "workspace:*"
   },
   "devDependencies": { "typescript": "^5.6.2" }
 }

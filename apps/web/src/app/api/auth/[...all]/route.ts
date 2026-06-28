@@ -1,3 +1,3 @@
-import { auth } from "@shipflow/auth";
+import { auth } from "@claire/auth";
 import { toNextJsHandler } from "better-auth/next-js";
 export const { GET, POST } = toNextJsHandler(auth);

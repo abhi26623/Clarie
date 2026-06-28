@@ -1,6 +1,6 @@
 /* ==========================================================================
-   ShipFlow Design System — globals.css
-   Identity: Cartesia → ShipFlow
+   Claire Design System — globals.css
+   Identity: Cartesia → Claire
    Strategy: Restrained product. Off-white canvas · charcoal ink · one deep
    forest green (#0B462C / oklch(0.32 0.10 148)) as the sole accent.
    Serif display (Playfair Display) + geometric sans (DM Sans).
@@ -208,7 +208,7 @@
   /* --------------------------------------------------------------------------
      9. shadcn/ui CSS variable mapping
      These aliases map our tokens onto shadcn's expected variable names so
-     every shadcn primitive automatically inherits ShipFlow identity.
+     every shadcn primitive automatically inherits Claire identity.
      -------------------------------------------------------------------------- */
   --background:              var(--canvas);
   --foreground:              var(--ink);

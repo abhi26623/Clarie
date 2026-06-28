@@ -38,7 +38,7 @@ export const session = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     activeOrganizationId: text("active_organization_id"),
   },
-  (table) => [index("session_userId_idx").on(table.userId)],
+  (table) => ({ userIdIdx: index("session_userId_idx").on(table.userId) }),
 );
 
 export const account = pgTable(
@@ -62,7 +62,7 @@ export const account = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("account_userId_idx").on(table.userId)],
+  (table) => ({ userIdIdx: index("account_userId_idx").on(table.userId) }),
 );
 
 export const verification = pgTable(
@@ -78,7 +78,7 @@ export const verification = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("verification_identifier_idx").on(table.identifier)],
+  (table) => ({ identifierIdx: index("verification_identifier_idx").on(table.identifier) }),
 );
 
 export const organization = pgTable(
@@ -91,7 +91,7 @@ export const organization = pgTable(
     createdAt: timestamp("created_at").notNull(),
     metadata: text("metadata"),
   },
-  (table) => [uniqueIndex("organization_slug_uidx").on(table.slug)],
+  (table) => ({ slugUidx: uniqueIndex("organization_slug_uidx").on(table.slug) }),
 );
 
 export const member = pgTable(
@@ -107,10 +107,10 @@ export const member = pgTable(
     role: text("role").default("member").notNull(),
     createdAt: timestamp("created_at").notNull(),
   },
-  (table) => [
-    index("member_organizationId_idx").on(table.organizationId),
-    index("member_userId_idx").on(table.userId),
-  ],
+  (table) => ({
+    organizationIdIdx: index("member_organizationId_idx").on(table.organizationId),
+    userIdIdx: index("member_userId_idx").on(table.userId),
+  }),
 );
 
 export const invitation = pgTable(
@@ -129,10 +129,10 @@ export const invitation = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
   },
-  (table) => [
-    index("invitation_organizationId_idx").on(table.organizationId),
-    index("invitation_email_idx").on(table.email),
-  ],
+  (table) => ({
+    organizationIdIdx: index("invitation_organizationId_idx").on(table.organizationId),
+    emailIdx: index("invitation_email_idx").on(table.email),
+  }),
 );
 
 export const userRelations = relations(user, ({ many }) => ({

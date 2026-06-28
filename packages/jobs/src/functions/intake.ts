@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { db, featureRequests, clarificationThreads } from "@shipflow/db";
-import { generateObjectResilient } from "@shipflow/ai";
+import { db, featureRequests, clarificationThreads } from "@claire/db";
+import { generateObjectResilient } from "@claire/ai";
 import { inngest } from "../client";
 import { runWorkflow, writeStep } from "../run-workflow";
 

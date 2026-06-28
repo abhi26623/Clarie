@@ -7,15 +7,15 @@ async function main() {
   const userId = "demo-user";
 
   await db.insert(user).values({
-    id: userId, name: "Demo Admin", email: "demo@shipflow.dev", emailVerified: true,
+    id: userId, name: "Demo Admin", email: "demo@claire.dev", emailVerified: true,
   }).onConflictDoNothing();
 
   await db.insert(organization).values({
-    id: orgId, name: "Acme Demo", slug: "acme-demo",
+    id: orgId, name: "Acme Demo", slug: "acme-demo", createdAt: new Date(),
   }).onConflictDoNothing();
 
   await db.insert(member).values({
-    id: "demo-member", organizationId: orgId, userId, role: "owner",
+    id: "demo-member", organizationId: orgId, userId, role: "owner", createdAt: new Date(),
   }).onConflictDoNothing();
 
   await db.insert(workspaceSettings).values({

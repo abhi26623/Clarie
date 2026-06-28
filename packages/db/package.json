@@ -1,5 +1,5 @@
 {
-  "name": "@shipflow/db",
+  "name": "@claire/db",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
   "dependencies": {
     "drizzle-orm": "^0.33.0",
     "postgres": "^3.4.4",
-    "@shipflow/config": "workspace:*"
+    "@claire/config": "workspace:*"
   },
   "devDependencies": {
     "drizzle-kit": "^0.24.2",

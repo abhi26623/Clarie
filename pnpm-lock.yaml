@@ -17,19 +17,19 @@ importers:
 
   apps/web:
     dependencies:
-      '@shipflow/api':
+      '@claire/api':
         specifier: workspace:*
         version: link:../../packages/api
-      '@shipflow/auth':
+      '@claire/auth':
         specifier: workspace:*
         version: link:../../packages/auth
-      '@shipflow/config':
+      '@claire/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@shipflow/db':
+      '@claire/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@shipflow/jobs':
+      '@claire/jobs':
         specifier: workspace:*
         version: link:../../packages/jobs
       '@tanstack/react-query':
@@ -78,12 +78,12 @@ importers:
 
   packages/ai:
     dependencies:
+      '@claire/config':
+        specifier: workspace:*
+        version: link:../config
       '@openrouter/ai-sdk-provider':
         specifier: ^0.0.6
         version: 0.0.6(zod@3.25.76)
-      '@shipflow/config':
-        specifier: workspace:*
-        version: link:../config
       ai:
         specifier: ^3.4.0
         version: 3.4.33(react@18.3.1)(sswr@2.2.0(svelte@5.56.4))(svelte@5.56.4)(vue@3.5.39(typescript@5.9.3))(zod@3.25.76)
@@ -97,13 +97,13 @@ importers:
 
   packages/api:
     dependencies:
-      '@shipflow/auth':
+      '@claire/auth':
         specifier: workspace:*
         version: link:../auth
-      '@shipflow/db':
+      '@claire/db':
         specifier: workspace:*
         version: link:../db
-      '@shipflow/jobs':
+      '@claire/jobs':
         specifier: workspace:*
         version: link:../jobs
       '@trpc/server':
@@ -125,10 +125,10 @@ importers:
 
   packages/auth:
     dependencies:
-      '@shipflow/config':
+      '@claire/config':
         specifier: workspace:*
         version: link:../config
-      '@shipflow/db':
+      '@claire/db':
         specifier: workspace:*
         version: link:../db
       better-auth:
@@ -151,7 +151,7 @@ importers:
 
   packages/db:
     dependencies:
-      '@shipflow/config':
+      '@claire/config':
         specifier: workspace:*
         version: link:../config
       drizzle-orm:
@@ -173,13 +173,13 @@ importers:
 
   packages/jobs:
     dependencies:
-      '@shipflow/ai':
+      '@claire/ai':
         specifier: workspace:*
         version: link:../ai
-      '@shipflow/config':
+      '@claire/config':
         specifier: workspace:*
         version: link:../config
-      '@shipflow/db':
+      '@claire/db':
         specifier: workspace:*
         version: link:../db
       inngest:

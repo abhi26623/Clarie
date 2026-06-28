@@ -1,12 +1,12 @@
 "use client";
-import { useSession } from "@shipflow/auth/client";
+import { useSession } from "@claire/auth/client";
 
 export default function Home() {
   const { data: session, isPending } = useSession();
 
   return (
     <main className="container">
-      <span className="badge">ShipFlow AI</span>
+      <span className="badge">Claire AI</span>
       <h1 style={{ fontSize: 40, margin: "16px 0", letterSpacing: -1 }}>
         From feature request to shipped.
       </h1>

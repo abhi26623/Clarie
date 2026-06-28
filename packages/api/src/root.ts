@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, desc } from "drizzle-orm";
-import { db, featureRequests, workflowSteps } from "@shipflow/db";
-import { inngest } from "@shipflow/jobs";
+import { db, featureRequests, workflowSteps } from "@claire/db";
+import { inngest } from "@claire/jobs";
 import { router, publicProcedure, protectedProcedure } from "./trpc";
 
 export const appRouter = router({

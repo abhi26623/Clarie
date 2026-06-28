@@ -21,11 +21,11 @@
     "superjson": "^2.2.1",
     "better-auth": "^1.1.0",
     "inngest": "^3.22.0",
-    "@shipflow/api": "workspace:*",
-    "@shipflow/auth": "workspace:*",
-    "@shipflow/db": "workspace:*",
-    "@shipflow/jobs": "workspace:*",
-    "@shipflow/config": "workspace:*"
+    "@claire/api": "workspace:*",
+    "@claire/auth": "workspace:*",
+    "@claire/db": "workspace:*",
+    "@claire/jobs": "workspace:*",
+    "@claire/config": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",

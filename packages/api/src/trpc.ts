@@ -1,6 +1,6 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
-import { auth } from "@shipflow/auth";
+import { auth } from "@claire/auth";
 
 export async function createContext(opts: { headers: Headers }) {
   const session = await auth.api.getSession({ headers: opts.headers });

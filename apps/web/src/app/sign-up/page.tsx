@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { signUp } from "@shipflow/auth/client";
+import { signUp } from "@claire/auth/client";
 import { useRouter } from "next/navigation";
 
 export default function SignUp() {

@@ -1,5 +1,5 @@
 /**
- * @shipflow/ui — public exports
+ * @claire/ui — public exports
  */
 
 export { StatusBadge } from "./status-badge";
