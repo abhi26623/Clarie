@@ -20,7 +20,7 @@ async function main() {
 
   await db.insert(workspaceSettings).values({
     organizationId: orgId, productDescription: "A project management tool for small teams.",
-    portalSlug: "acme-demo", plan: "free",
+    portalSlug: "demo-org", plan: "free",
   }).onConflictDoNothing();
 
   const reqs = [

@@ -9,7 +9,7 @@
     "lint": "turbo run lint",
     "db:generate": "pnpm --filter @claire/db db:generate",
     "db:push": "pnpm --filter @claire/db db:push",
-    "db:seed": "pnpm --filter @claire/db db:seed",
+    "seed": "pnpm --filter web run seed",
     "auth:generate": "pnpm --filter @claire/auth auth:generate"
   },
   "devDependencies": {

@@ -1,51 +1,150 @@
 "use client";
-import { useState } from "react";
+export const dynamic = "force-dynamic";
+import { useState, useEffect, Suspense } from "react";
 import { signIn } from "@claire/auth/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+
+const GithubIcon = ({ size = 24 }: { size?: number }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+    <path d="M9 18c-4.51 2-5-2-7-2" />
+  </svg>
+);
+
+// Must be isolated in its own component so useSearchParams
+// doesn't force the entire page out of SSR in Next.js 14.
+function AuthErrorToast() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (error === "demo-unavailable") {
+      toast.error("Couldn't start the demo just now. Try again, or sign in to create your own workspace.");
+      router.replace("/sign-in");
+    } else if (error === "email_not_found" || error === "github-no-email") {
+      toast.error("We couldn't read your GitHub email. Make your primary email public, or use email sign-in below.");
+      router.replace("/sign-in");
+    } else if (error) {
+      toast.error("GitHub sign-in failed, please try again.");
+      router.replace("/sign-in");
+    }
+  }, [searchParams, router]);
+  return null;
+}
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  
+  const getReturnTo = () => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("returnTo");
+    }
+    return null;
+  };
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGitHubSignIn = async () => {
     setLoading(true);
-    await signIn.email({
-      email,
-      password,
+    const returnTo = getReturnTo();
+    if (returnTo && returnTo.startsWith("/join/")) {
+      document.cookie = `returnTo=${returnTo}; path=/; max-age=3600;`;
+    }
+    await signIn.social({
+      provider: "github",
+      callbackURL: "/api/auth/route-destination",
       fetchOptions: {
-        onSuccess: () => {
-          router.push("/dashboard");
-        },
         onError: (ctx) => {
-          alert(ctx.error.message);
+          toast.error(ctx.error.message);
           setLoading(false);
         },
       }
     });
   };
 
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const returnTo = getReturnTo();
+    if (returnTo && returnTo.startsWith("/join/")) {
+      document.cookie = `returnTo=${returnTo}; path=/; max-age=3600;`;
+    }
+    await signIn.email({
+      email,
+      password,
+      fetchOptions: {
+        onSuccess: () => {
+          window.location.href = "/api/auth/route-destination";
+        },
+        onError: (ctx) => {
+          toast.error(ctx.error.message);
+          setLoading(false);
+        },
+      }
+    });
+  };
   return (
-    <main className="container" style={{ maxWidth: 400, marginTop: 80 }}>
-      <div className="card">
-        <h1 style={{ fontSize: 24, marginBottom: 16 }}>Sign In</h1>
-        <form onSubmit={handleSignIn} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <main className="container" style={{ maxWidth: 440, marginTop: "var(--space-20)", marginBottom: "var(--space-20)" }}>
+      <Suspense fallback={null}>
+        <AuthErrorToast />
+      </Suspense>
+      <div className="card" style={{ padding: "var(--space-8)" }}>
+        <div style={{ textAlign: "center", marginBottom: "var(--space-8)" }}>
+          <h1 style={{ fontSize: "var(--text-2xl)", marginBottom: "var(--space-2)", letterSpacing: "-0.02em" }}>Sign In</h1>
+          <p style={{ color: "var(--ink-secondary)", fontSize: "var(--text-sm)", margin: 0 }}>Welcome back to Claire.</p>
+        </div>
+        
+        <button 
+          onClick={handleGitHubSignIn}
+          disabled={loading}
+          className="btn btn-primary"
+          style={{ width: "100%", height: 44, display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--space-2)" }}
+        >
+          <GithubIcon size={18} />
+          {loading ? "Signing in..." : "Continue with GitHub"}
+        </button>
+
+        <div style={{ display: "flex", alignItems: "center", margin: "var(--space-6) 0" }}>
+          <div style={{ flex: 1, height: 1, backgroundColor: "var(--border)" }}></div>
+          <span style={{ padding: "0 var(--space-4)", fontSize: "var(--text-xs)", color: "var(--ink-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>or use email</span>
+          <div style={{ flex: 1, height: 1, backgroundColor: "var(--border)" }}></div>
+        </div>
+
+        <form onSubmit={handleSignIn} style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
           <div>
             <label>Email</label>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} style={{ height: 44 }} />
           </div>
           <div>
             <label>Password</label>
-            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input className="input" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} style={{ height: 44 }} />
           </div>
-          <button type="submit" className="btn" style={{ marginTop: 8 }} disabled={loading}>
-            {loading ? "Signing in..." : "Sign In"}
+          <button type="submit" className="btn btn-secondary" style={{ width: "100%", height: 44, marginTop: "var(--space-2)", display: "flex", alignItems: "center", justifyContent: "center" }} disabled={loading}>
+            {loading ? "Signing in..." : "Sign In with Email"}
           </button>
         </form>
-        <p className="muted" style={{ marginTop: 16, fontSize: 13, textAlign: "center" }}>
-          Don't have an account? <a href="/sign-up" style={{ textDecoration: "underline" }}>Sign up</a>
+        <p style={{ marginTop: "var(--space-6)", fontSize: "var(--text-sm)", color: "var(--ink-secondary)", textAlign: "center", marginBottom: 0 }}>
+          Don't have an account?{" "}
+          <a href="/sign-up" onClick={(e) => {
+            const returnTo = getReturnTo();
+            if (returnTo) {
+              e.preventDefault();
+              router.push(`/sign-up?returnTo=${encodeURIComponent(returnTo)}`);
+            }
+          }}>Sign up</a>
         </p>
       </div>
     </main>

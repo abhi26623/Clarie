@@ -22,6 +22,20 @@
       "when": 1782641975284,
       "tag": "0002_bright_adam_warlock",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782662024923,
+      "tag": "0003_flat_captain_flint",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782809904777,
+      "tag": "0004_breezy_supernaut",
+      "breakpoints": true
     }
   ]
 }

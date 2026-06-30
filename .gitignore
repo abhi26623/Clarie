@@ -10,3 +10,6 @@ dist
 *.pem
 skills-lock.json
 .agents/
+DESIGN.md
+DESIGN_BIBLE.md
+copy.txt

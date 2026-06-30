@@ -1,10 +1,15 @@
-# Design System
+# Design System — ShipFlow (Claire)
+
+> Single source of truth for visual + interaction design. Every UI prompt must reference this file. Tokens live in `globals.css` — use them, never invent hex values. The anti-patterns list is a set of hard bans.
+
+---
 
 ## Theme
 
 **Register:** product — design serves the workflow, not the brand.
 **Mode:** light (warm off-white canvas; the UI is used in daylit offices).
 **Color strategy:** Restrained — tinted neutrals + one accent ≤ 10% surface coverage.
+**Wow budget:** one element earns emphasis per screen (size, motion, or color). Everything around it stays quiet. If two things compete for attention, cut one.
 
 ---
 
@@ -31,15 +36,17 @@ Canvas tilt: +0.01 chroma toward hue 90 (warm, not generically cream).
 
 ### Status color tiers
 
-| Tier | Use |
-|---|---|
-| `neutral` | received, todo, duplicate, out-of-scope, feature-exists |
-| `info` | analyzing, in-development, in-review, in-progress, running |
-| `generating` | prd-generating, tasks-generating (purple hue, pulse) |
-| `active` | accepted, prd-ready, tasks-ready, ready-for-approval |
-| `warning` | clarification-needed, fix-needed, bug-report, needs-changes, sent-back |
-| `success` | shipped, done, pass, approved |
-| `error` | rejected, failed, fail |
+| Tier | Use | Pulses? |
+|---|---|---|
+| `neutral` | received, todo, duplicate, out-of-scope, feature-exists | No |
+| `info` | analyzing, in-development, in-review, in-progress, running | **Yes** |
+| `generating` | prd-generating, tasks-generating (purple hue) | **Yes** |
+| `active` | accepted, prd-ready, tasks-ready, ready-for-approval | No |
+| `warning` | clarification-needed, fix-needed, bug-report, needs-changes, sent-back | No |
+| `success` | shipped, done, pass, approved | No |
+| `error` | rejected, failed, fail | No |
+
+**Pulse rule:** the dot pulses on `info` and `generating` only (in-flight work). Never pulse `neutral`, `active`, `warning`, `success`, `error`. Pulse stops under `prefers-reduced-motion`.
 
 ---
 
@@ -68,6 +75,7 @@ Canvas tilt: +0.01 chroma toward hue 90 (warm, not generically cream).
 
 **Letter-spacing floor:** `-0.03em` for display (never tighter than `-0.04em`).
 **Line length cap:** `max-width: 65ch` on body paragraphs.
+**Pairing rule:** serif for display moments only (page titles, hero, section display). Never set body, labels, buttons, or data in serif.
 
 ---
 
@@ -89,8 +97,16 @@ Pills/badges: `--radius-pill` (9999px). **No card radius above 16px.**
 
 **Hairline discipline:** 1px everywhere. Never use side-stripe borders.
 Never pair `border` + `box-shadow` on the same element — pick one.
-
 Shadow max blur: `8px`. Use `--shadow-sm` (4px) for default card elevation.
+
+---
+
+## Layout
+
+- **One bold element per screen.** The hero pipeline animation, the ship confetti, the PRD reveal — pick the single moment that carries the screen and keep everything else quiet.
+- Left-aligned forms. Hairline dividers over boxes. Generous whitespace over decoration.
+- Multi-panel pages (feature detail, approval) use fixed column ratios; the decision/action column is sticky.
+- Max content width on text-heavy pages; full-bleed only for the landing hero.
 
 ---
 
@@ -99,10 +115,21 @@ Shadow max blur: `8px`. Use `--shadow-sm` (4px) for default card elevation.
 ### StatusBadge (`packages/ui/src/status-badge.tsx`)
 
 - Monospace chip, `--text-2xs`, uppercase, `--radius-pill`
-- Leading 5px dot; dot pulses (`badge__dot--pulse`) on in-flight states
+- Leading 5px dot; dot pulses (`badge__dot--pulse`) on `info` + `generating` tiers only
 - Seven semantic tiers, each owning `bg / fg / border-color` via CSS custom properties
 - Color is never the sole signal — text label always present (`title` attribute for a11y)
 - Import: `import { StatusBadge } from "@claire/ui"`
+
+### Loading states
+
+- **Always skeleton, never spinner.** No centered activity indicators on full pages.
+- Skeleton shape must match the real layout it replaces: same column count, same row count, same card structure.
+- No layout shift when skeleton swaps to real content.
+
+### Empty states
+
+- One Lucide icon + one warm line + one primary action. Never blank, never apologetic.
+- Examples: "Your pipeline is empty. Submit your first feature idea." / "Connect GitHub to enable AI code reviews."
 
 ### shadcn mapping
 
@@ -117,10 +144,44 @@ All shadcn primitives auto-inherit via CSS variable aliasing in `globals.css`:
 
 ## Motion
 
+Grounded in three principles (Benji Taylor, "Family Values"):
+
+1. **Gradual revelation** — never dump all info at once. Reveal detail when it becomes relevant (slide-overs, expand-on-demand, progressive setup bar, status-driven center pane). Every tap feels intentional.
+2. **Fluidity** — seamless, continuous transitions between states and routes. No jarring jumps, no white flash. Static/abrupt feels cheap.
+3. **Selective delight** — rare, high-impact moments only (ship confetti, a special reveal on PRD-ready / review-passed). Never sprinkle effects everywhere.
+
+### Tokens & timing
+
 - `--ease-out-expo` for entrances, `--ease-out-quart` for hovers.
 - `--duration-fast` (100ms) for color transitions, `--duration-enter` (220ms) for elements.
-- All animations gated on `prefers-reduced-motion: reduce`.
-- Pulse dot: 1.6s ease-in-out infinite (stops in reduced-motion).
+- Pulse dot: 1.6s ease-in-out infinite.
+- **All animation gated on `prefers-reduced-motion: reduce`** — reduced motion keeps every state and screen reachable, just without transition/confetti/pulse.
+
+### State transitions (portal + feature detail center pane)
+
+- **Crossfade only:** opacity 0→1, `--duration-enter` (220ms), `--ease-out-expo`.
+- Outgoing state fades to 0 **before** incoming fades in (sequential, not simultaneous).
+- Never slide content left/right between states — there's no spatial model here.
+- Route changes crossfade; never a white reload flash.
+
+---
+
+## Copy voice
+
+- **Sentence case everywhere.** Never title case on buttons or headings.
+- Buttons name exactly what happens: "Approve & ship", "Generate plan", "Copy branch", "Send back for fixes".
+- **Same word through the whole flow:** if the button says "Ship", the success toast says "Shipped". If it says "Publish", the toast says "Published".
+- Name things by what the user controls, not how the system is built ("notifications", not "webhook config").
+- Empty states: one warm line + one action. Inviting, never apologetic.
+- Errors: say what broke **and** how to fix it. Never "Something went wrong."
+- No filler: ban "seamlessly", "powerful", "robust", "streamline", "supercharge", "unlock".
+
+### Toast semantics (sonner)
+
+- **Success (green):** completed actions only — approved, shipped, connected, copied.
+- **Warning (yellow):** non-blocking issues, approaching a limit.
+- **Error (red):** failures only, with what + how-to-fix.
+- **No info-blue.** Every toast is success, warning, or error.
 
 ---
 
@@ -133,4 +194,9 @@ All shadcn primitives auto-inherit via CSS variable aliasing in `globals.css`:
 - No neon glows or colored `box-shadow` > 8px blur
 - No card `border-radius` > 16px
 - No Inter font
-- No numbered section markers as scaffolding
+- No numbered section markers as scaffolding (only where content is a genuine sequence, e.g. the core-loop "how it works")
+- No spinners as loading states (skeletons only)
+- No serif for body, labels, buttons, or data
+- No slide transitions between portal/center-pane states (crossfade only)
+- No info-blue toasts
+- No filler marketing words (see Copy voice)

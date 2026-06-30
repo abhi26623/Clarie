@@ -1,5 +1,9 @@
 import { inngest } from "./client";
 import { intakeWorkflow } from "./functions/intake";
+import { clarificationAnsweredWorkflow } from "./functions/clarification";
+import { prdApprovedWorkflow } from "./functions/prd";
+import { featureShippedWorkflow } from "./functions/ship";
+import { prReviewWorkflow } from "./functions/review";
 
 export { inngest };
 export { runWorkflow, writeStep } from "./run-workflow";
@@ -10,4 +14,13 @@ const noop = inngest.createFunction(
   async () => ({ ok: true }),
 );
 
-export const functions = [noop, intakeWorkflow];
+// All 5 real functions + noop. This array is spread into serve() in apps/web/src/app/api/inngest/route.ts
+export const functions = [
+  noop,
+  intakeWorkflow,
+  clarificationAnsweredWorkflow,
+  prdApprovedWorkflow,
+  featureShippedWorkflow,
+  prReviewWorkflow,
+];
+

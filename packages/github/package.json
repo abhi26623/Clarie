@@ -1,0 +1,16 @@
+{
+  "name": "@claire/github",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "typecheck": "tsc --noEmit" },
+  "dependencies": {
+    "@octokit/app": "^16.1.2",
+    "octokit": "^4.0.2",
+    "@claire/config": "workspace:*"
+  },
+  "devDependencies": { "typescript": "^5.6.2", "@types/node": "^20.0.0" }
+}

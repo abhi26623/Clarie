@@ -8,9 +8,12 @@
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   1. Google Fonts import
+   1. Fonts injected via next/font in layout.tsx
    -------------------------------------------------------------------------- */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* --------------------------------------------------------------------------
    2. Raw palette — OKLCH
@@ -103,9 +106,7 @@
      Geometric sans: DM Sans (legible, neutral workhorse for UI)
      Mono: DM Mono (code, IDs, technical values)
      -------------------------------------------------------------------------- */
-  --font-display:  'Playfair Display', 'Georgia', serif;
-  --font-sans:     'DM Sans', 'ui-sans-serif', system-ui, sans-serif;
-  --font-mono:     'DM Mono', 'ui-monospace', 'Cascadia Code', monospace;
+  /* Fonts defined on html via next/font */
 
   /* Type scale — 1.250 major third ratio, anchored at 16px base */
   --text-2xs:   0.64rem;    /* 10.24px — meta, micro-labels       */
@@ -124,7 +125,7 @@
   /* Line heights */
   --leading-tight:  1.15;   /* display headings                    */
   --leading-snug:   1.30;   /* subheadings                         */
-  --leading-normal: 1.50;   /* body — comfortable reading          */
+  --leading-normal: 1.60;   /* body — comfortable reading          */
   --leading-relaxed:1.65;   /* long-form prose                     */
 
   /* Letter-spacing */
@@ -281,22 +282,29 @@ body {
 /* --------------------------------------------------------------------------
    11. Typography defaults
    -------------------------------------------------------------------------- */
-h1, h2, h3 {
-  font-family: var(--font-display);
-  font-weight: var(--weight-medium);
-  line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-tighter);
-  text-wrap: balance;
-  color: var(--ink);
-}
-
-h4, h5, h6 {
+h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-sans);
   font-weight: var(--weight-semi);
   line-height: var(--leading-snug);
   letter-spacing: var(--tracking-tight);
   text-wrap: balance;
   color: var(--ink);
+}
+
+.display, .font-display {
+  font-family: var(--font-display);
+  font-weight: var(--weight-medium);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.eyebrow {
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  font-size: var(--text-xs);
+  letter-spacing: 0.07em;
+  color: var(--ink-tertiary);
+  font-weight: var(--weight-medium);
 }
 
 h1 { font-size: var(--text-4xl); }
@@ -307,7 +315,8 @@ h5 { font-size: var(--text-lg); }
 h6 { font-size: var(--text-md); }
 
 p {
-  line-height: var(--leading-normal);
+  font-family: var(--font-sans);
+  line-height: 1.6;
   text-wrap: pretty;
   max-width: 65ch;   /* impeccable: cap body line length */
 }
@@ -369,9 +378,10 @@ code, kbd, samp, pre {
 }
 
 .text-label {
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--ink-tertiary);
 }
@@ -549,4 +559,587 @@ label {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
+}
+
+/* --------------------------------------------------------------------------
+   16. B1 Shared UI Components
+   -------------------------------------------------------------------------- */
+
+/* SlideOver */
+.slide-over-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: oklch(0.22 0.016 255 / 0.4);
+  z-index: var(--z-modal-bg);
+}
+
+.slide-over-panel {
+  position: fixed;
+  inset-block: 0;
+  right: 0;
+  width: 100%;
+  max-width: 28rem;
+  background-color: var(--canvas);
+  border-left: 1px solid var(--border);
+  box-shadow: -4px 0 24px oklch(0 0 0 / 0.08);
+  z-index: var(--z-modal);
+  display: flex;
+  flex-direction: column;
+}
+
+/* PipelineStrip */
+.pipeline-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pipeline-strip::-webkit-scrollbar { display: none; }
+
+.pipeline-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--ink-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-out-quart);
+}
+.pipeline-stage:hover { color: var(--ink); }
+.pipeline-stage--active { color: var(--ink); }
+
+.pipeline-stage__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--surface-raised);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-secondary);
+  transition: background-color var(--duration-fast) var(--ease-out-quart), color var(--duration-fast) var(--ease-out-quart);
+}
+.pipeline-stage--active .pipeline-stage__count {
+  background-color: var(--green-100);
+  color: var(--green-800);
+}
+
+.pipeline-stage__indicator {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--accent);
+  border-radius: 2px 2px 0 0;
+}
+
+/* FeatureCard */
+.feature-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: border-color var(--duration-fast) var(--ease-out-quart), background-color var(--duration-fast) var(--ease-out-quart);
+}
+.feature-card:hover {
+  background-color: var(--surface-overlay);
+  border-color: var(--border-strong);
+}
+
+.feature-card__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.feature-card__title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feature-card__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-tertiary);
+}
+
+.feature-card__action {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--accent);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity var(--duration-fast) var(--ease-out-quart), transform var(--duration-fast) var(--ease-out-quart);
+}
+.feature-card:hover .feature-card__action {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* PhaseStepper & WorkflowProgress */
+.stepper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stepper__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.stepper__indicator {
+  margin-top: 2px; /* optical alignment with text */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.stepper__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.stepper__dot--pending {
+  background-color: var(--border-strong);
+}
+.stepper__dot--active {
+  background-color: var(--accent);
+}
+.stepper__icon--done {
+  color: var(--status-success-fg);
+}
+
+.stepper__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+
+.stepper__title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+}
+.stepper__title--pending {
+  color: var(--ink-tertiary);
+}
+
+.stepper__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-tertiary);
+}
+
+/* EmptyState */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-12) var(--space-6);
+  gap: var(--space-4);
+  background-color: var(--canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.empty-state__icon {
+  color: var(--ink-tertiary);
+  margin-bottom: var(--space-2);
+}
+
+.empty-state__title {
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+}
+
+/* Skeleton */
+.skeleton {
+  background-color: var(--surface-raised);
+  border-radius: var(--radius-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Portal Redesign Components
+   -------------------------------------------------------------------------- */
+
+.portal-form {
+  max-width: 520px;
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.portal-step {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.portal-step--done {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--status-success-fg);
+}
+
+.portal-step--running {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--status-info-fg);
+  animation: pulse-dot 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.portal-step--failed {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--status-error-fg);
+}
+
+.clarification-choice {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: var(--surface);
+}
+
+.clarification-choice:hover {
+  background-color: var(--surface-overlay);
+}
+
+.clarification-choice input:checked + span {
+  font-weight: 500;
+}
+
+.clarification-choice:has(input:checked) {
+  border-color: var(--accent);
+  background-color: var(--accent-subtle);
+}
+
+.portal-footer {
+  color: var(--ink-tertiary);
+  font-size: var(--text-xs);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-step--running { animation: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Kanban Board Components (Prompt D3)
+   -------------------------------------------------------------------------- */
+
+.kanban-board {
+  display: flex;
+  gap: var(--space-6);
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: var(--space-4);
+  height: 100%;
+}
+
+.kanban-column {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 280px;
+  width: 300px;
+  flex-shrink: 0;
+  min-height: 0;
+}
+
+.kanban-column__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  /* Optional: pad right slightly so scrollbar doesn't hug cards */
+  padding-right: var(--space-1);
+}
+
+.kanban-column__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-3);
+  position: sticky;
+  top: 0;
+  background-color: var(--surface);
+  z-index: 10;
+}
+
+.kanban-column__title {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  color: var(--ink);
+}
+
+.kanban-column__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--surface-raised);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-secondary);
+}
+
+.kanban-card {
+  position: relative;
+  background-color: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  cursor: grab;
+  transition: transform var(--duration-fast) var(--ease-out-quart), border-color var(--duration-fast) var(--ease-out-quart), box-shadow var(--duration-fast) var(--ease-out-quart);
+}
+
+.kanban-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+}
+
+.kanban-card:active {
+  cursor: grabbing;
+}
+
+/* Border + shadow hard ban enforced: border becomes transparent when shadow is active */
+.kanban-card--dragging {
+  box-shadow: var(--shadow-sm);
+  border-color: transparent;
+  z-index: var(--z-modal);
+  opacity: 0.9;
+  transform: translateY(0) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kanban-card {
+    transition: none;
+  }
+  .kanban-card:hover {
+    transform: none;
+  }
+}
+
+.kanban-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.kanban-card__title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+  line-height: var(--leading-snug);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  overflow-wrap: normal;
+  white-space: normal;
+}
+
+.kanban-card__desc {
+  font-size: var(--text-xs);
+  color: var(--ink-secondary);
+  line-height: var(--leading-normal);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+
+.kanban-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.kanban-card__action {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-out-quart);
+  background-color: var(--canvas);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  z-index: 10;
+}
+
+.kanban-card:hover .kanban-card__action,
+.kanban-card:focus-within .kanban-card__action {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.kanban-card--ai {
+  border-color: var(--border-accent);
+}
+
+.kanban-popover-content {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1);
+  z-index: var(--z-dropdown);
+  min-width: 180px;
+}
+
+.kanban-popover-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--ink-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out-quart), color var(--duration-fast) var(--ease-out-quart);
+}
+
+.kanban-popover-item:hover,
+.kanban-popover-item[data-highlighted] {
+  background-color: var(--surface-overlay);
+  color: var(--ink);
+  outline: none;
+}
+
+/* --------------------------------------------------------------------------
+   Approval Panel Grid (Prompt D4)
+   -------------------------------------------------------------------------- */
+
+.approval-grid {
+  display: grid;
+  grid-template-columns: 60fr 40fr;
+  gap: var(--space-10);
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .approval-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Landing page — display & eyebrow opt-in utilities
+   After T1: all headings default to DM Sans. Fraunces only via .display class.
+   -------------------------------------------------------------------------- */
+
+.display,
+.font-display {
+  font-family: var(--font-display);
+  font-weight: var(--weight-medium);
+  line-height: 1.05;
+}
+
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-tertiary);
+}
+
+/* --------------------------------------------------------------------------
+   Landing page — responsive nav
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 768px) {
+  .landing-nav-links     { display: none !important; }
+  .landing-nav-ctas      { display: none !important; }
+  .landing-nav-hamburger { display: flex !important; }
+}
+
+@media (min-width: 769px) {
+  .landing-nav-hamburger { display: none !important; }
+}
+
+/* --------------------------------------------------------------------------
+   Pipeline animation — mobile label collapse
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .pipeline-label-full  { display: none; }
+  .pipeline-label-short { display: inline !important; }
+}
+
+/* --------------------------------------------------------------------------
+   Footer Link Hover
+   -------------------------------------------------------------------------- */
+.footer-link:hover {
+  color: var(--ink-secondary) !important;
 }

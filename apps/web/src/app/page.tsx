@@ -1,35 +1,104 @@
-"use client";
-import { useSession } from "@claire/auth/client";
+import type { Metadata } from "next";
 
-export default function Home() {
-  const { data: session, isPending } = useSession();
+export const dynamic = "force-dynamic";
+
+import { Nav } from "@/components/landing/Nav";
+import { Hero } from "@/components/landing/Hero";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { WatchItWork } from "@/components/landing/WatchItWork";
+import { ReviewCard } from "@/components/landing/ReviewCard";
+import { FeatureMoments } from "@/components/landing/FeatureMoments";
+import { StatsStrip } from "@/components/landing/StatsStrip";
+import { ClosingCta } from "@/components/landing/ClosingCta";
+import { Footer } from "@/components/landing/Footer";
+import { db } from "@claire/db";
+import { featureRequests } from "@claire/db";
+import { eq, avg } from "drizzle-orm";
+
+export const metadata: Metadata = {
+  title: "Claire — Ship features. Skip the chaos.",
+  description:
+    "AI-reviewed, PRD-driven feature pipeline. Idea to production through one loop.",
+  openGraph: {
+    title: "Claire — Ship features. Skip the chaos.",
+    description:
+      "AI-reviewed, PRD-driven feature pipeline. Idea to production through one loop.",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Claire — Ship features. Skip the chaos.",
+    description:
+      "AI-reviewed, PRD-driven feature pipeline. Idea to production through one loop.",
+  },
+};
+
+export default async function LandingPage() {
+  // Fetch avg time-to-ship — omit stat if null
+  let timeToShipDays: number | null = null;
+  try {
+    const [result] = await db
+      .select({ avg: avg(featureRequests.timeToShipDays) })
+      .from(featureRequests)
+      .where(eq(featureRequests.status, "shipped"));
+    const raw = result?.avg;
+    if (raw != null) {
+      timeToShipDays = Math.round(Number(raw));
+    }
+  } catch {
+    // DB unavailable at build time — omit stat silently
+  }
 
   return (
-    <main className="container">
-      <span className="badge">Claire AI</span>
-      <h1 style={{ fontSize: 40, margin: "16px 0", letterSpacing: -1 }}>
-        From feature request to shipped.
-      </h1>
-      <p className="muted" style={{ maxWidth: 520 }}>
-        An AI reviewer that judges code against product requirements, plus a live,
-        visible workflow. This is the scaffold spine.
-      </p>
-      <div className="row" style={{ marginTop: 24 }}>
-        {isPending ? (
-          <span className="muted">Loading...</span>
-        ) : session ? (
-          <a className="btn" href="/dashboard">Go to dashboard</a>
-        ) : (
-          <>
-            <a className="btn" href="/sign-in">Sign In</a>
-            <a className="badge" href="/sign-up" style={{ padding: "10px 16px" }}>Sign Up</a>
-          </>
-        )}
-        <a className="badge" href="/p/demo-org" style={{ padding: "10px 16px" }}>Public portal demo</a>
+    <>
+      {/* Grain overlay — z-index: -1 so it sits below all content */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: -1,
+          pointerEvents: "none",
+          opacity: 0.028,
+        }}
+      >
+        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <filter id="grain">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.65"
+              numOctaves="3"
+              stitchTiles="stitch"
+            />
+            <feColorMatrix type="saturate" values="0" />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#grain)" />
+        </svg>
       </div>
-      <p className="muted" style={{ marginTop: 24, fontSize: 13 }}>
-        Health check: <a href="/api/trpc/health?batch=1&input=%7B%7D">/api/trpc/health</a>
-      </p>
-    </main>
+
+      <header>
+        <Nav />
+      </header>
+
+      <main>
+        <Hero />
+        <HowItWorks />
+        <WatchItWork />
+        <ReviewCard />
+
+        {/* Breathing beat */}
+        <div style={{ paddingBlock: "var(--space-20)", textAlign: "center" }}>
+          <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-sm)", color: "var(--ink-secondary)" }}>
+            It doesn't stop at code review.
+          </p>
+        </div>
+
+        <FeatureMoments />
+        <StatsStrip timeToShipDays={timeToShipDays} />
+        <ClosingCta />
+      </main>
+
+      <Footer />
+    </>
   );
 }
