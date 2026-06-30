@@ -10,7 +10,8 @@ if (!process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET) {
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
   secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+  baseURL: process.env.BETTER_AUTH_URL,
+  trustHost: true,
   emailAndPassword: { enabled: true },
   account: {
     accountLinking: {
@@ -22,7 +23,12 @@ export const auth = betterAuth({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scope: ["read:user", "user:email"],
+      scope: ["user:email", "read:user"],
+      mapProfileToUser: (profile) => ({
+        email: profile.email ?? `${profile.id}+${profile.login}@users.noreply.github.com`,
+        name: profile.name ?? profile.login,
+        image: profile.avatar_url,
+      }),
     },
   },
   trustedOrigins: process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL, process.env.NEXT_PUBLIC_APP_URL || ""] : ["http://localhost:3000"],
