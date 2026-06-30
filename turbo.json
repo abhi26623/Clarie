@@ -1,5 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "DATABASE_URL",
+    "BETTER_AUTH_SECRET",
+    "BETTER_AUTH_URL",
+    "OPENROUTER_API_KEY",
+    "INNGEST_EVENT_KEY",
+    "INNGEST_SIGNING_KEY",
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET"
+  ],
   "globalDependencies": [".env"],
   "tasks": {
     "dev": { "cache": false, "persistent": true },
