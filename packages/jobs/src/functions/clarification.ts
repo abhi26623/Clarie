@@ -28,7 +28,7 @@ const prdSchema = z.object({
 export const clarificationAnsweredWorkflow = inngest.createFunction(
   { id: "feature-clarification-answered" },
   { event: "feature/clarification.answered" },
-  async ({ event }) => {
+  async ({ event, step }) => {
     const id = event.data.featureRequestId as number;
     const ctx = { entityType: "feature_request", entityId: String(id) };
 
@@ -60,9 +60,24 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
       });
 
       // Consume triage credit AFTER successful re-analysis.
-      // This is a legitimate separate charge: the user provided a clarification answer
-      // and a new AI classification call was made. Not a double-charge of intake's triage.
-      await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.triage);
+      // Wrapped in step.run for true Inngest idempotency across retries.
+      const triageCredit = await step.run("consume-triage", async () => {
+        try {
+          await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.triage);
+          return { ok: true } as { ok: boolean, msg?: string };
+        } catch (err: any) {
+          if (err instanceof CreditsExhaustedError) return { ok: false, msg: err.message };
+          throw err;
+        }
+      });
+
+      if (!triageCredit.ok) {
+        await db.update(featureRequests)
+          .set({ status: "failed", aiReasoning: `${CREDITS_EXHAUSTED_SENTINEL}${triageCredit.msg}` })
+          .where(eq(featureRequests.id, id));
+        await writeStep(ctx, "failed", "failed", { label: "Credits exhausted" });
+        return; // Halt workflow gracefully
+      }
 
       if (result.decision === "clarification_needed" && result.clarification) {
         // Still needs more clarification
@@ -115,7 +130,23 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
       });
 
       // Consume prd-gen credit AFTER successful PRD generation.
-      await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.prdGeneration);
+      const prdCredit = await step.run("consume-prd", async () => {
+        try {
+          await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.prdGeneration);
+          return { ok: true } as { ok: boolean, msg?: string };
+        } catch (err: any) {
+          if (err instanceof CreditsExhaustedError) return { ok: false, msg: err.message };
+          throw err;
+        }
+      });
+
+      if (!prdCredit.ok) {
+        await db.update(featureRequests)
+          .set({ status: "failed", aiReasoning: `${CREDITS_EXHAUSTED_SENTINEL}${prdCredit.msg}` })
+          .where(eq(featureRequests.id, id));
+        await writeStep(ctx, "failed", "failed", { label: "Credits exhausted" });
+        return;
+      }
 
       await db.update(featureRequests)
         .set({ status: "prd_ready", aiDecision: result.decision, aiReasoning: result.reasoning })

@@ -29,7 +29,7 @@ const prdSchema = z.object({
 export const intakeWorkflow = inngest.createFunction(
   { id: "feature-intake", retries: 2 },
   { event: "feature/intake" },
-  async ({ event }) => {
+  async ({ event, step }) => {
     const id = event.data.featureRequestId as number;
     const ctx = { entityType: "feature_request", entityId: String(id) };
 
@@ -49,10 +49,24 @@ export const intakeWorkflow = inngest.createFunction(
       });
 
       // Consume triage credit AFTER successful classification.
-      // Plain await (no step.run) — intake uses runWorkflow, not the Inngest step API.
-      // Idempotency guard: CreditsExhaustedError is caught below and does NOT rethrow,
-      // so Inngest will not retry the function after credit exhaustion.
-      await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.triage);
+      // Wrapped in step.run for true Inngest idempotency across retries.
+      const triageCredit = await step.run("consume-triage", async () => {
+        try {
+          await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.triage);
+          return { ok: true } as { ok: boolean, msg?: string };
+        } catch (err: any) {
+          if (err instanceof CreditsExhaustedError) return { ok: false, msg: err.message };
+          throw err;
+        }
+      });
+
+      if (!triageCredit.ok) {
+        await db.update(featureRequests)
+          .set({ status: "failed", aiReasoning: `${CREDITS_EXHAUSTED_SENTINEL}${triageCredit.msg}` })
+          .where(eq(featureRequests.id, id));
+        await writeStep(ctx, "failed", "failed", { label: "Credits exhausted" });
+        return; // Halt workflow gracefully (Inngest run succeeds)
+      }
 
       // All status writes use real featureStatus enum values
       if (result.decision === "clarification_needed" && result.clarification) {
@@ -124,8 +138,23 @@ export const intakeWorkflow = inngest.createFunction(
       });
 
       // Consume prd-gen credit AFTER successful PRD generation.
-      // Placed here (post-insert) so a DB failure before this won't double-charge on retry.
-      await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.prdGeneration);
+      const prdCredit = await step.run("consume-prd", async () => {
+        try {
+          await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.prdGeneration);
+          return { ok: true } as { ok: boolean, msg?: string };
+        } catch (err: any) {
+          if (err instanceof CreditsExhaustedError) return { ok: false, msg: err.message };
+          throw err;
+        }
+      });
+
+      if (!prdCredit.ok) {
+        await db.update(featureRequests)
+          .set({ status: "failed", aiReasoning: `${CREDITS_EXHAUSTED_SENTINEL}${prdCredit.msg}` })
+          .where(eq(featureRequests.id, id));
+        await writeStep(ctx, "failed", "failed", { label: "Credits exhausted" });
+        return;
+      }
 
       await db.update(featureRequests)
         .set({ status: "prd_ready", aiDecision: result.decision, aiReasoning: result.reasoning })
@@ -136,21 +165,16 @@ export const intakeWorkflow = inngest.createFunction(
     } catch (err) {
       // Persist failure status + a safe error message so the portal can show a clear state.
       // runWorkflow already wrote the failed workflow step, so polling terminates immediately.
-      // CREDITS_EXHAUSTED_SENTINEL lets the UI show "Upgrade to Pro" instead of a generic error.
-      const isCreditsErr = err instanceof CreditsExhaustedError;
       const errMsg = err instanceof Error ? err.message : String(err);
-      const safeMsg = isCreditsErr
-        ? `${CREDITS_EXHAUSTED_SENTINEL}${errMsg}`
-        : (errMsg.length > 0 && errMsg.length < 500
-            ? errMsg
-            : "The intake workflow encountered an unexpected error.");
+      const safeMsg = errMsg.length > 0 && errMsg.length < 500
+        ? errMsg
+        : "The intake workflow encountered an unexpected error.";
       await db.update(featureRequests)
         .set({ status: "failed", aiReasoning: safeMsg })
         .where(eq(featureRequests.id, id))
         .catch(() => {}); // best-effort — never swallow the rethrow
-      // On credit exhaustion, do NOT rethrow (Inngest should not retry — credits won't appear)
-      // On real errors, rethrow so Inngest marks the run as failed and can retry
-      if (!isCreditsErr) throw err;
+      
+      throw err; // Rethrow so Inngest marks run as failed and retries
     }
   },
 );

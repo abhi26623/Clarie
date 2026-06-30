@@ -22,7 +22,7 @@ const tasksSchema = z.object({
 export const prdApprovedWorkflow = inngest.createFunction(
   { id: "prd-approved" },
   { event: "prd/approved" },
-  async ({ event }) => {
+  async ({ event, step }) => {
     const id = event.data.featureRequestId as number;
     const ctx = { entityType: "feature_request", entityId: String(id) };
 
@@ -61,8 +61,25 @@ export const prdApprovedWorkflow = inngest.createFunction(
       await db.update(featureRequests).set({ status: "tasks_ready" }).where(eq(featureRequests.id, id));
 
       // Consume task-gen credit AFTER tasks are persisted.
-      // Plain await — prd.ts uses runWorkflow (no Inngest step API).
-      await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.taskGeneration);
+      // Wrapped in step.run for true Inngest idempotency across retries.
+      const taskCredit = await step.run("consume-task-gen", async () => {
+        try {
+          await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.taskGeneration);
+          return { ok: true } as { ok: boolean, msg?: string };
+        } catch (err: any) {
+          if (err instanceof CreditsExhaustedError) return { ok: false, msg: err.message };
+          throw err;
+        }
+      });
+
+      if (!taskCredit.ok) {
+        // Leave the featureRequest in "tasks_ready" since the tasks did generate,
+        // but set the AI reasoning so the UI knows credits ran out for this step.
+        await db.update(featureRequests)
+          .set({ aiReasoning: `${CREDITS_EXHAUSTED_SENTINEL}${taskCredit.msg}` })
+          .where(eq(featureRequests.id, id));
+        return;
+      }
 
       await writeStep(ctx, "tasks", "done", { label: `${result.tasks.length} tasks generated`, count: result.tasks.length });
     });
