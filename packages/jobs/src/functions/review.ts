@@ -1,5 +1,5 @@
 import { inngest } from "../client";
-import { db, pullRequests, featureRequests, aiReviews, reviewIssues, prds, tasks } from "@claire/db";
+import { db, pullRequests, featureRequests, aiReviews, reviewIssues, prds, tasks, repositories, AI_CREDIT_COSTS, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL } from "@claire/db";
 import { eq, and, desc } from "drizzle-orm";
 import {
   getPullRequestFiles,
@@ -249,6 +249,38 @@ export const prReviewWorkflow = inngest.createFunction(
       });
 
       await logStep("analyzing_code", "done", "Analyzed code");
+
+      // ------------------------------------------------------------------
+      // Step 4b: Consume AI credits AFTER successful review generation.
+      // Uses a unique step.run name so Inngest memoises this separately from
+      // any other consume step. reviewNumber > 1 = re-review (same cost today,
+      // named separately for future cost divergence).
+      // ------------------------------------------------------------------
+      await step.run("consume-review-credits", async () => {
+        const orgId = contextData.feature?.organizationId
+          ?? (await db.query.repositories.findFirst({
+              where: eq(repositories.id, contextData.pr.repositoryId),
+            }))?.organizationId;
+        if (!orgId) return; // unlinked PR with no org context — skip gracefully
+
+        const cost = reviewNumber > 1 ? AI_CREDIT_COSTS.reReview : AI_CREDIT_COSTS.review;
+        try {
+          await consumeAiCredits(orgId, cost);
+        } catch (err) {
+          if (err instanceof CreditsExhaustedError) {
+            // Credits ran out mid-review: the review is already saved. Surface the
+            // sentinel on the feature so the UI shows an upgrade CTA.
+            if (contextData.pr.featureRequestId) {
+              await db.update(featureRequests)
+                .set({ aiReasoning: `${CREDITS_EXHAUSTED_SENTINEL}${err.message}` })
+                .where(eq(featureRequests.id, contextData.pr.featureRequestId));
+            }
+            return; // don't rethrow — review was saved successfully, just credits exhausted
+          }
+          throw err;
+        }
+      });
+
       await logStep("saving_results", "running", "Saving review results");
 
       // ------------------------------------------------------------------

@@ -6,5 +6,6 @@ const client = postgres(process.env.DATABASE_URL!, { prepare: false });
 export const db = drizzle(client, { schema });
 export * from "./schema";
 export * from "./plans";
+export * from "./credits";
 export { schema };
 export * from "drizzle-orm";

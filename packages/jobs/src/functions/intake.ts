@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { db, featureRequests, clarificationThreads, prds } from "@claire/db";
+import { db, featureRequests, clarificationThreads, prds, AI_CREDIT_COSTS, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL } from "@claire/db";
 import { generateObjectResilient } from "@claire/ai";
 import { inngest } from "../client";
 import { runWorkflow, writeStep } from "../run-workflow";
@@ -47,6 +47,12 @@ export const intakeWorkflow = inngest.createFunction(
         prompt: `Feature request title: "${req.title}"\nDetails: "${req.body}"\n\nClassify and decide how to handle it.`,
         modelPurpose: "light",
       });
+
+      // Consume triage credit AFTER successful classification.
+      // Plain await (no step.run) — intake uses runWorkflow, not the Inngest step API.
+      // Idempotency guard: CreditsExhaustedError is caught below and does NOT rethrow,
+      // so Inngest will not retry the function after credit exhaustion.
+      await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.triage);
 
       // All status writes use real featureStatus enum values
       if (result.decision === "clarification_needed" && result.clarification) {
@@ -117,6 +123,10 @@ export const intakeWorkflow = inngest.createFunction(
         successMetrics: prd.successMetrics,
       });
 
+      // Consume prd-gen credit AFTER successful PRD generation.
+      // Placed here (post-insert) so a DB failure before this won't double-charge on retry.
+      await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.prdGeneration);
+
       await db.update(featureRequests)
         .set({ status: "prd_ready", aiDecision: result.decision, aiReasoning: result.reasoning })
         .where(eq(featureRequests.id, id));
@@ -126,15 +136,21 @@ export const intakeWorkflow = inngest.createFunction(
     } catch (err) {
       // Persist failure status + a safe error message so the portal can show a clear state.
       // runWorkflow already wrote the failed workflow step, so polling terminates immediately.
+      // CREDITS_EXHAUSTED_SENTINEL lets the UI show "Upgrade to Pro" instead of a generic error.
+      const isCreditsErr = err instanceof CreditsExhaustedError;
       const errMsg = err instanceof Error ? err.message : String(err);
-      const safeMsg = errMsg.length > 0 && errMsg.length < 500
-        ? errMsg
-        : "The intake workflow encountered an unexpected error.";
+      const safeMsg = isCreditsErr
+        ? `${CREDITS_EXHAUSTED_SENTINEL}${errMsg}`
+        : (errMsg.length > 0 && errMsg.length < 500
+            ? errMsg
+            : "The intake workflow encountered an unexpected error.");
       await db.update(featureRequests)
         .set({ status: "failed", aiReasoning: safeMsg })
         .where(eq(featureRequests.id, id))
         .catch(() => {}); // best-effort — never swallow the rethrow
-      throw err; // rethrow so Inngest marks the run as failed, not silently succeeded
+      // On credit exhaustion, do NOT rethrow (Inngest should not retry — credits won't appear)
+      // On real errors, rethrow so Inngest marks the run as failed and can retry
+      if (!isCreditsErr) throw err;
     }
   },
 );

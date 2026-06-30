@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, protectedOrgProcedure } from "../trpc";
-import { db, featureRequests, prds, member } from "@claire/db";
+import { db, featureRequests, prds, member, AI_CREDIT_COSTS, getRemainingCredits } from "@claire/db";
 import { TRPCError } from "@trpc/server";
 import { eq, and } from "drizzle-orm";
 import { inngest } from "@claire/jobs";
@@ -35,6 +35,16 @@ export const prdRouter = router({
     .input(z.object({ id: z.number(), featureId: z.number() }))
     .mutation(async ({ input, ctx }) => {
       await assertFeatureOrgAdmin(input.featureId, ctx.orgId, ctx.session?.user?.id);
+
+      // Credit pre-check: task generation costs 2 credits
+      const credits = await getRemainingCredits(ctx.orgId);
+      if (credits.remaining < AI_CREDIT_COSTS.taskGeneration) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "AI credits exhausted for this workspace. Upgrade to Pro to continue.",
+        });
+      }
+
       const [updated] = await db.update(prds).set({ approved: true }).where(eq(prds.id, input.id)).returning();
       
       await db.update(featureRequests).set({ status: "tasks_generating" }).where(eq(featureRequests.id, input.featureId));

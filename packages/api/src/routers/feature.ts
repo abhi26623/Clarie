@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, publicProcedure, protectedOrgProcedure } from "../trpc";
-import { db, featureRequests, clarificationThreads, workspaceSettings, workflowSteps, member } from "@claire/db";
+import { db, featureRequests, clarificationThreads, workspaceSettings, workflowSteps, member, AI_CREDIT_COSTS, getRemainingCredits } from "@claire/db";
 import { TRPCError } from "@trpc/server";
 import { eq, and, desc, isNull, or, inArray, lt } from "drizzle-orm";
 import { inngest } from "@claire/jobs";
@@ -68,6 +68,18 @@ export const featureRouter = router({
           });
         }
         targetOrgId = settings.organizationId;
+      }
+
+      // ── Credit pre-check (synchronous, read-only) ──────────────────────
+      // We check triage cost only — the cheapest operation in the chain.
+      // If the workspace can't afford even 1 credit, block immediately.
+      // The Inngest function will atomically consume credits per step.
+      const credits = await getRemainingCredits(targetOrgId);
+      if (credits.remaining < AI_CREDIT_COSTS.triage) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "AI credits exhausted for this workspace. Upgrade to Pro to continue.",
+        });
       }
 
       const trackingToken = crypto.randomUUID();
@@ -150,6 +162,15 @@ export const featureRouter = router({
       const [settings] = await db.select().from(workspaceSettings)
         .where(eq(workspaceSettings.portalSlug, input.portalSlug));
       if (!settings) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Credit pre-check: org resolved from portal slug — check before AI work
+      const clarCredits = await getRemainingCredits(settings.organizationId);
+      if (clarCredits.remaining < AI_CREDIT_COSTS.triage) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "AI credits exhausted for this workspace. Upgrade to Pro to continue.",
+        });
+      }
 
       const [req] = await db.select().from(featureRequests)
         .where(and(

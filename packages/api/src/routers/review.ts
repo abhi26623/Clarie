@@ -3,6 +3,7 @@ import { router, protectedOrgProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import {
   db, featureRequests, aiReviews, pullRequests, repositories, reviewIssues,
+  AI_CREDIT_COSTS, getRemainingCredits,
 } from "@claire/db";
 import { eq, and, desc, asc, inArray } from "drizzle-orm";
 import { inngest } from "@claire/jobs";
@@ -71,6 +72,15 @@ export const reviewRouter = router({
       }
       if (!pr.repository.installationId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "GitHub App not installed for this repository" });
+      }
+
+      // Credit pre-check: re-review costs 5 credits
+      const credits = await getRemainingCredits(ctx.orgId);
+      if (credits.remaining < AI_CREDIT_COSTS.reReview) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "AI credits exhausted for this workspace. Upgrade to Pro to continue.",
+        });
       }
 
       await inngest.send({

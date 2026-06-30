@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { db, featureRequests, prds, tasks } from "@claire/db";
+import { db, featureRequests, prds, tasks, AI_CREDIT_COSTS, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL } from "@claire/db";
 import { generateObjectResilient } from "@claire/ai";
 import { inngest } from "../client";
 import { runWorkflow, writeStep } from "../run-workflow";
@@ -59,6 +59,11 @@ export const prdApprovedWorkflow = inngest.createFunction(
       }
 
       await db.update(featureRequests).set({ status: "tasks_ready" }).where(eq(featureRequests.id, id));
+
+      // Consume task-gen credit AFTER tasks are persisted.
+      // Plain await — prd.ts uses runWorkflow (no Inngest step API).
+      await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.taskGeneration);
+
       await writeStep(ctx, "tasks", "done", { label: `${result.tasks.length} tasks generated`, count: result.tasks.length });
     });
   },

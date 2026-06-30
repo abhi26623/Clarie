@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { db, featureRequests, clarificationThreads, prds } from "@claire/db";
+import { db, featureRequests, clarificationThreads, prds, AI_CREDIT_COSTS, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL } from "@claire/db";
 import { generateObjectResilient } from "@claire/ai";
 import { inngest } from "../client";
 import { runWorkflow, writeStep } from "../run-workflow";
@@ -59,6 +59,11 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
         modelPurpose: "light",
       });
 
+      // Consume triage credit AFTER successful re-analysis.
+      // This is a legitimate separate charge: the user provided a clarification answer
+      // and a new AI classification call was made. Not a double-charge of intake's triage.
+      await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.triage);
+
       if (result.decision === "clarification_needed" && result.clarification) {
         // Still needs more clarification
         await db.insert(clarificationThreads).values({
@@ -108,6 +113,9 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
         edgeCases: prd.edgeCases,
         successMetrics: prd.successMetrics,
       });
+
+      // Consume prd-gen credit AFTER successful PRD generation.
+      await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.prdGeneration);
 
       await db.update(featureRequests)
         .set({ status: "prd_ready", aiDecision: result.decision, aiReasoning: result.reasoning })
