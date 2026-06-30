@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { SlideOver } from "@claire/ui";
@@ -87,6 +87,29 @@ export function NewRequestSlideOver({
   // Set once the feature is created; drives the polling query
   const [newFeatureId, setNewFeatureId] = useState<number | null>(null);
 
+  // ─── Safety timeout ──────────────────────────────────────────────────────────
+  // If polling runs for >3 minutes without reaching a terminal state, stop it
+  // and surface a non-blocking nudge to track progress on the detail page.
+  const [isTimedOut, setIsTimedOut] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // Arm the timeout when a new feature ID is set
+    if (newFeatureId && !isTerminal) {
+      timeoutRef.current = setTimeout(() => {
+        setIsTimedOut(true);
+      }, 3 * 60 * 1000); // 3 minutes
+    }
+    // Clear the timeout when polling is no longer needed
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newFeatureId]); // Re-arm only on new submission, not on every status change
+
   const submitMutation = trpc.feature.submit.useMutation();
 
   // ─── Polling query ───────────────────────────────────────────────────────────
@@ -96,9 +119,11 @@ export function NewRequestSlideOver({
     { id: newFeatureId ?? 0 },
     {
       enabled: !!newFeatureId,
-      staleTime: 0,            // always treat cached data as stale so we get fresh data
+      staleTime: 0,                       // always treat cached data as stale
       refetchOnWindowFocus: true,
+      refetchIntervalInBackground: false, // pause polling when the tab is hidden
       refetchInterval: (query) => {
+        if (isTimedOut) return false;      // safety timeout hit — stop polling
         const status = query.state.data?.status?.toLowerCase();
         if (!status || INTAKE_TERMINAL_STATUSES.has(status)) return false;
         return 2000;
@@ -120,6 +145,11 @@ export function NewRequestSlideOver({
     setSubmitterEmail("");
     setErrorMessage("");
     setNewFeatureId(null);
+    setIsTimedOut(false);  // clear timeout state on reset so next submission starts fresh
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
   };
 
   const handleClose = () => {
@@ -250,6 +280,21 @@ export function NewRequestSlideOver({
                   {!["prd_ready", "clarification_needed"].includes(currentStatus || "") && "View request"}
                   <ArrowRight size={16} className="ml-2" />
                 </button>
+              </div>
+            ) : isTimedOut ? (
+              /* Timeout nudge — non-blocking, just suggests the detail page */
+              <div className="p-4 bg-canvas border border-subtle rounded-md space-y-3">
+                <p className="text-xs text-ink-secondary font-mono text-center">
+                  This is taking longer than expected — you can track it on the request page.
+                </p>
+                {newFeatureId && (
+                  <button
+                    onClick={navigateToFeature}
+                    className="btn btn-primary w-full justify-center py-2.5 text-sm font-medium"
+                  >
+                    View request <ArrowRight size={16} className="ml-2" />
+                  </button>
+                )}
               </div>
             ) : (
               <div className="p-4 bg-canvas border border-subtle rounded-md text-center text-xs text-ink-tertiary font-mono">
