@@ -81,11 +81,9 @@ export default function ApprovalsListPage() {
       ) : (
         <div className="space-y-4">
           {pendingFeatures.map((feature) => {
-            // Deterministic "Time since ready"
-            // Primary = ready_for_approval workflow_step createdAt; Fallback = latestReview.completedAt only if absent
-            const readyStep = (feature as any).workflowSteps?.find((s: any) => s.step === "ready_for_approval");
+            // "Time since ready" — derived from the latest AI review completion timestamp
             const latestReview = (feature as any).aiReviews?.[0];
-            const readyTimestamp = readyStep?.createdAt ? readyStep.createdAt : latestReview?.completedAt;
+            const readyTimestamp = latestReview?.completedAt;
             
             let timeSinceText = "Recently";
             if (readyTimestamp) {

@@ -390,7 +390,11 @@ export const inviteLinks = pgTable("invite_links", {
 /* ---------- Relations ---------- */
 
 export const featureRequestsRelations = relations(featureRequests, ({ many, one }) => ({
+  // ⚠️  workflowSteps uses a polymorphic (entityType, entityId: text) pattern with NO typed FK.
+  // Drizzle cannot infer the join — do NOT use `with: { workflowSteps }` in queries; it will 500.
+  // Query directly: db.select().from(workflowSteps).where(eq(workflowSteps.entityId, String(id)))
   workflowSteps: many(workflowSteps),
+
   clarificationThreads: many(clarificationThreads),
   prd: one(prds, { fields: [featureRequests.id], references: [prds.featureRequestId] }),
   tasks: many(tasks),

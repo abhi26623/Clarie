@@ -28,7 +28,6 @@ export const approvalRouter = router({
       ),
       with: {
         aiReviews: { with: { issues: true }, orderBy: desc(aiReviews.reviewNumber) },
-        workflowSteps: true,
       },
       orderBy: desc(featureRequests.createdAt),
     });
@@ -47,7 +46,6 @@ export const approvalRouter = router({
           prd: true,
           tasks: true,
           aiReviews: { with: { issues: true }, orderBy: desc(aiReviews.reviewNumber) },
-          workflowSteps: true,
         }
       });
       if (!result) throw new TRPCError({ code: "NOT_FOUND", message: "Feature not found in this workspace" });
