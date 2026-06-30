@@ -27,7 +27,7 @@ const prdSchema = z.object({
 });
 
 export const clarificationAnsweredWorkflow = inngest.createFunction(
-  { id: "feature-clarification-answered" },
+  { id: "feature-clarification-answered", timeouts: { finish: "55s" } },
   { event: "feature/clarification.answered" },
   async ({ event, step }) => {
     const id = event.data.featureRequestId as number;
@@ -62,9 +62,9 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
           schema: decisionSchema,
           system: TRIAGE_SYSTEM_PROMPT,
           prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\n\nClarification context:\n${context}${existingContext}\n\nClassify and decide how to handle it.`,
-          modelPurpose: "light",
-          maxAttempts: 2,
-          timeoutMs: 12_000,
+          modelPurpose: "default",
+          maxAttempts: 1,
+          timeoutMs: 20_000,
         });
       });
 

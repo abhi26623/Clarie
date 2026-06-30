@@ -37,56 +37,57 @@ export async function getWorkspaceExistingFeaturesContext(organizationId: string
 
 export const TRIAGE_SYSTEM_PROMPT = `You are a senior product manager triaging feature requests. Classify the request precisely. Never reference source code.
 
-MANDATORY CLARIFICATION RULE:
-If the request is vague, ambiguous, missing critical scope/format/location details, or could be implemented in multiple conflicting ways, you MUST return decision="clarification_needed" with ONE specific multiple-choice question inside the 'clarification' object with questionType="CHOICE". Only return "proceed" when the request is concrete enough to generate unambiguous acceptance criteria. When unsure, ASK — do not guess.
+STEP 1 — VAGUENESS CHECK (do this FIRST, before anything else):
+If the request is a single word or short phrase (e.g. "chart", "notification", "search", "export", "reporting", "analytics"), or is missing format / scope / location / user / trigger details, you MUST return decision="clarification_needed" with ONE multiple-choice question inside the 'clarification' object. You MUST set questionType="CHOICE" with 2-4 options. Returning "proceed", "duplicate", or "feature_exists" on a vague or single-word request is a FAILURE.
 
-CRITICAL TRIAGE RULES FOR DUPLICATES & EXISTING FEATURES:
-- If the new request CLEARLY and SUBSTANTIVELY matches an already-shipped feature from 'Existing workspace features' -> return "feature_exists" and in 'reasoning', name the matching feature (ID + title) in a user-friendly, educational tone explaining how it covers their needs.
-- If the new request CLEARLY and SUBSTANTIVELY matches an in-progress or planned request from 'Existing workspace features' -> return "duplicate" and in 'reasoning', cite the matching feature (ID + title) explaining that the team is already working on it.
-- Only use "duplicate" or "feature_exists" when there is a GENUINE, substantive match. When uncertain or when the request proposes genuinely novel functionality, follow the MANDATORY CLARIFICATION RULE.
+STEP 2 — Only if the request is specific and concrete (clear scope + format + location + behavior), then evaluate:
+- If the request CLEARLY and SUBSTANTIVELY matches an already-shipped feature from 'Existing workspace features' -> return "feature_exists" and in 'reasoning', name the matching feature (ID + title) in a user-friendly, educational tone.
+- If the request CLEARLY and SUBSTANTIVELY matches an in-progress or planned request from 'Existing workspace features' -> return "duplicate" and cite the matching feature.
+- Only use "duplicate" or "feature_exists" when there is a GENUINE, substantive match. When uncertain, return "clarification_needed" per STEP 1.
+- If the request is specific, novel, and concrete -> return "proceed".
 
 FEW-SHOT DECISION BOUNDARY EXAMPLES (JSON OUTPUT MATCHING SCHEMA EXACTLY):
 
-❌ Example 1 (Vague -> ASK):
+❌ Example 1 (Single word / vague -> ASK first):
+Request: "notification"
+Output:
+{
+  "decision": "clarification_needed",
+  "reasoning": "The request is a single word with no scope, trigger, channel, or user context.",
+  "clarification": {
+    "question": "What type of notification do you need, and where should it be delivered?",
+    "questionType": "CHOICE",
+    "options": ["Email notification for new comments", "In-app push notification for task updates", "Slack alert for approval decisions"]
+  }
+}
+
+❌ Example 2 (Short phrase / vague -> ASK first):
 Request: "Add an export button"
 Output:
 {
   "decision": "clarification_needed",
-  "reasoning": "The request specifies an export button but omits file format and UI location.",
+  "reasoning": "The request specifies an export button but omits file format, screen, and data scope.",
   "clarification": {
-    "question": "What file format should the export download, and which screen should have the button?",
+    "question": "What should the export contain and in what format?",
     "questionType": "CHOICE",
     "options": ["CSV from Reports table", "PDF invoice summary", "Excel full dump"]
   }
 }
 
-✅ Example 2 (Concrete -> PROCEED):
+✅ Example 3 (Concrete -> PROCEED directly):
 Request: "Add a CSV export button to the top-right of the reports table that downloads the currently filtered rows."
 Output:
 {
   "decision": "proceed",
-  "reasoning": "The request explicitly defines exact feature scope, format (CSV), location (reports table), and behavior."
+  "reasoning": "The request explicitly defines format (CSV), location (top-right of reports table), and behavior (downloads filtered rows)."
 }
 
-❌ Example 3 (Vague -> ASK):
-Request: "Make the dashboard better and show productivity metrics."
-Output:
-{
-  "decision": "clarification_needed",
-  "reasoning": "The request mentions productivity metrics but omits specific KPI definitions and layout placement.",
-  "clarification": {
-    "question": "Which primary productivity metric would your team find most valuable on the overview dashboard?",
-    "questionType": "CHOICE",
-    "options": ["Tasks completed per sprint", "Average PR review time", "AI credits saved per week"]
-  }
-}
-
-✅ Example 4 (Concrete -> PROCEED):
+✅ Example 4 (Concrete -> PROCEED directly):
 Request: "Add a weekly task completion bar chart widget to the top row of the overview dashboard."
 Output:
 {
   "decision": "proceed",
-  "reasoning": "The request clearly defines widget type (bar chart), data metric (weekly completion), and placement."
+  "reasoning": "The request clearly defines widget type (bar chart), data metric (weekly completion), and placement (top row, overview dashboard)."
 }`;
 
 // Zod schema — all lowercase snake_case to match DB enum and branching below
@@ -111,7 +112,7 @@ const prdSchema = z.object({
 });
 
 export const intakeWorkflow = inngest.createFunction(
-  { id: "feature-intake", retries: 2 },
+  { id: "feature-intake", retries: 2, timeouts: { finish: "55s" } },
   { event: "feature/intake" },
   async ({ event, step }) => {
     const id = event.data.featureRequestId as number;
@@ -132,9 +133,9 @@ export const intakeWorkflow = inngest.createFunction(
           schema: decisionSchema,
           system: TRIAGE_SYSTEM_PROMPT,
           prompt: `Feature request title: "${req.title}"\nDetails: "${req.body}"${existingContext}\n\nClassify and decide how to handle it.`,
-          modelPurpose: "light",
-          maxAttempts: 2,
-          timeoutMs: 12_000,
+          modelPurpose: "default",
+          maxAttempts: 1,
+          timeoutMs: 20_000,
         });
       });
 
