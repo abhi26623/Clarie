@@ -43,7 +43,8 @@ interface PipelineStep {
 }
 
 function deriveSteps(status: string | undefined): PipelineStep[] {
-  const order = status ? (STATUS_ORDER[status] ?? 0) : 0;
+  const normalized = status ? status.toLowerCase() : "";
+  const order = normalized ? (STATUS_ORDER[normalized] ?? 0) : 0;
 
   const raw: Array<{ id: string; label: string; threshold: number }> = [
     { id: "received",  label: "Request received",        threshold: 0 },
@@ -98,14 +99,14 @@ export function NewRequestSlideOver({
       staleTime: 0,            // always treat cached data as stale so we get fresh data
       refetchOnWindowFocus: true,
       refetchInterval: (query) => {
-        const status = query.state.data?.status;
+        const status = query.state.data?.status?.toLowerCase();
         if (!status || INTAKE_TERMINAL_STATUSES.has(status)) return false;
         return 2000;
       },
     }
   );
 
-  const currentStatus = featureData?.status;
+  const currentStatus = featureData?.status?.toLowerCase();
   const isTerminal = currentStatus ? INTAKE_TERMINAL_STATUSES.has(currentStatus) : false;
 
   // Derive checklist from polled status — no workflow.getSteps needed
