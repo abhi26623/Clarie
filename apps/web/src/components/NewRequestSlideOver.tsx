@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { SlideOver, WorkflowProgress, PhaseStep } from "@claire/ui";
-import { WORKFLOW_ENTITY_FEATURE } from "@claire/api/constants";
-import { ArrowRight, CheckCircle2, AlertCircle, HelpCircle, FileText, ExternalLink } from "lucide-react";
+import { SlideOver } from "@claire/ui";
+import { ArrowRight, CheckCircle2, AlertCircle, HelpCircle, FileText, Clock, Loader2 } from "lucide-react";
 
-const INTAKE_TERMINAL_STATUSES = [
+// Statuses at which we stop polling — the pipeline has reached a final state
+// for the "new request" intake flow.
+const INTAKE_TERMINAL_STATUSES = new Set([
   "prd_ready",
   "clarification_needed",
   "duplicate",
@@ -15,7 +16,54 @@ const INTAKE_TERMINAL_STATUSES = [
   "out_of_scope",
   "bug_report",
   "failed",
-];
+]);
+
+// Map each status to its position in the pipeline so we can derive which
+// checklist steps are complete vs. in-progress vs. pending.
+const STATUS_ORDER: Record<string, number> = {
+  received:             0,
+  analyzing:            1,
+  clarification_needed: 2,
+  accepted:             2,
+  duplicate:            2,
+  feature_exists:       2,
+  out_of_scope:         2,
+  bug_report:           2,
+  failed:               2,
+  prd_generating:       3,
+  prd_ready:            4,
+};
+
+type StepState = "done" | "active" | "pending";
+
+interface PipelineStep {
+  id: string;
+  label: string;
+  state: StepState;
+}
+
+function deriveSteps(status: string | undefined): PipelineStep[] {
+  const order = status ? (STATUS_ORDER[status] ?? 0) : 0;
+
+  const raw: Array<{ id: string; label: string; threshold: number }> = [
+    { id: "received",  label: "Request received",        threshold: 0 },
+    { id: "analyzing", label: "AI analysing request",    threshold: 1 },
+    { id: "classify",  label: "Classifying & triaging",  threshold: 2 },
+    { id: "prd",       label: "Generating product spec", threshold: 3 },
+    { id: "ready",     label: "Plan ready",              threshold: 4 },
+  ];
+
+  return raw.map((s) => ({
+    id: s.id,
+    label: s.label,
+    state:
+      order > s.threshold
+        ? "done"
+        : order === s.threshold
+        ? "active"
+        : "pending",
+  }));
+}
 
 export function NewRequestSlideOver({
   isOpen,
@@ -28,62 +76,42 @@ export function NewRequestSlideOver({
 }) {
   const router = useRouter();
 
-  // Form states
+  // Form state
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [submitterName, setSubmitterName] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Submission & Polling state
+  // Set once the feature is created; drives the polling query
   const [newFeatureId, setNewFeatureId] = useState<number | null>(null);
-  const [isPolling, setIsPolling] = useState(false);
 
   const submitMutation = trpc.feature.submit.useMutation();
 
-  // Polling queries
-  const { data: featureData, refetch: refetchFeature, isError: isFeatureError } = trpc.feature.getById.useQuery(
+  // ─── Polling query ───────────────────────────────────────────────────────────
+  // refetchInterval is the ONLY live-update mechanism. No setInterval, no SSE.
+  // Polls every 2 s while the status is non-terminal, then stops automatically.
+  const { data: featureData } = trpc.feature.getById.useQuery(
     { id: newFeatureId ?? 0 },
     {
       enabled: !!newFeatureId,
-      refetchInterval: isPolling ? 1000 : false,
+      staleTime: 0,            // always treat cached data as stale so we get fresh data
+      refetchOnWindowFocus: true,
+      refetchInterval: (query) => {
+        const status = query.state.data?.status;
+        if (!status || INTAKE_TERMINAL_STATUSES.has(status)) return false;
+        return 2000;
+      },
     }
   );
 
-  const { data: workflowStepsData, refetch: refetchWorkflow } = trpc.workflow.getSteps.useQuery(
-    { entityType: WORKFLOW_ENTITY_FEATURE, entityId: String(newFeatureId ?? 0) },
-    {
-      enabled: !!newFeatureId,
-      refetchInterval: isPolling ? 1000 : false,
-    }
-  );
-
-  // Evaluate terminal status
   const currentStatus = featureData?.status;
-  const isTerminal = currentStatus ? INTAKE_TERMINAL_STATUSES.includes(currentStatus) : false;
+  const isTerminal = currentStatus ? INTAKE_TERMINAL_STATUSES.has(currentStatus) : false;
 
-  // Explicitly clear interval / stop polling on terminal status, query error, on close, and on unmount
-  useEffect(() => {
-    if (!isOpen || isTerminal || isFeatureError) {
-      setIsPolling(false);
-      return;
-    }
+  // Derive checklist from polled status — no workflow.getSteps needed
+  const steps = useMemo(() => deriveSteps(currentStatus), [currentStatus]);
 
-    let interval: NodeJS.Timeout | null = null;
-    if (isPolling && newFeatureId && !isTerminal && !isFeatureError) {
-      interval = setInterval(() => {
-        refetchFeature();
-        refetchWorkflow();
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [isOpen, isTerminal, isFeatureError, isPolling, newFeatureId, refetchFeature, refetchWorkflow]);
-
+  // ─── Handlers ────────────────────────────────────────────────────────────────
   const handleReset = () => {
     setTitle("");
     setBody("");
@@ -91,11 +119,9 @@ export function NewRequestSlideOver({
     setSubmitterEmail("");
     setErrorMessage("");
     setNewFeatureId(null);
-    setIsPolling(false);
   };
 
   const handleClose = () => {
-    setIsPolling(false);
     handleReset();
     onClose();
   };
@@ -118,32 +144,19 @@ export function NewRequestSlideOver({
       });
 
       setNewFeatureId(result.id);
-      setIsPolling(true);
       if (onCreated) onCreated();
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to generate plan.");
     }
   };
 
-  // Map workflow steps to UI primitive format
-  const steps: PhaseStep[] = useMemo(() => {
-    if (!workflowStepsData) return [];
-    return workflowStepsData.map((s: any) => ({
-      id: String(s.id),
-      label: (s.partialResult as any)?.label || s.step,
-      state: s.status === "done" ? "done" : s.status === "failed" ? "done" : "active",
-      meta: s.durationMs ? `${s.durationMs}ms` : undefined,
-      isStatusInFlight: s.status === "running",
-    }));
-  }, [workflowStepsData]);
-
   const navigateToFeature = () => {
     if (!newFeatureId) return;
-    setIsPolling(false);
     router.push(`/requests/${newFeatureId}`);
     handleClose();
   };
 
+  // ─── Render ──────────────────────────────────────────────────────────────────
   return (
     <SlideOver isOpen={isOpen} onClose={handleClose} title="New Feature Request">
       <div className="flex flex-col h-full p-8 overflow-y-auto bg-surface text-ink space-y-8">
@@ -155,7 +168,7 @@ export function NewRequestSlideOver({
         </div>
 
         {newFeatureId ? (
-          /* LIVE WORKFLOW PROGRESS VIEW */
+          /* ── LIVE WORKFLOW PROGRESS VIEW ─────────────────────────────── */
           <div className="space-y-8 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="p-4 bg-surface-raised border border-border rounded-lg space-y-2">
@@ -167,11 +180,40 @@ export function NewRequestSlideOver({
                 <h4 className="text-xs font-mono uppercase tracking-wider text-ink-secondary mb-4">
                   Live AI Execution
                 </h4>
-                <WorkflowProgress steps={steps} />
+
+                {/* Status-derived step checklist — updates as polling returns new status */}
+                <ol className="space-y-3">
+                  {steps.map((step) => (
+                    <li key={step.id} className="flex items-center gap-3">
+                      <span className="flex-shrink-0">
+                        {step.state === "done" && (
+                          <CheckCircle2 size={18} className="text-status-success-fg" />
+                        )}
+                        {step.state === "active" && (
+                          <Loader2 size={18} className="text-ink-secondary animate-spin" />
+                        )}
+                        {step.state === "pending" && (
+                          <Clock size={18} className="text-ink-tertiary opacity-40" />
+                        )}
+                      </span>
+                      <span
+                        className={`text-sm ${
+                          step.state === "done"
+                            ? "text-ink line-through decoration-ink-tertiary"
+                            : step.state === "active"
+                            ? "text-ink font-medium"
+                            : "text-ink-tertiary"
+                        }`}
+                      >
+                        {step.label}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
               </div>
             </div>
 
-            {/* TERMINAL STATUS HANDLING */}
+            {/* Terminal result card */}
             {isTerminal ? (
               <div className="p-6 bg-surface-raised border border-border-strong rounded-lg space-y-4 animate-in fade-in duration-200">
                 <div className="flex items-center gap-3">
@@ -210,12 +252,12 @@ export function NewRequestSlideOver({
               </div>
             ) : (
               <div className="p-4 bg-canvas border border-subtle rounded-md text-center text-xs text-ink-tertiary font-mono">
-                AI is currently processing your request...
+                AI is currently processing your request…
               </div>
             )}
           </div>
         ) : (
-          /* NEW REQUEST FORM */
+          /* ── NEW REQUEST FORM ────────────────────────────────────────── */
           <form onSubmit={handleGeneratePlan} className="space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-5">
               {errorMessage && (
