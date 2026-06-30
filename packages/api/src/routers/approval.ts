@@ -151,4 +151,18 @@ export const approvalRouter = router({
 
       return shippedFeature;
     }),
+
+  listByFeature: protectedOrgProcedure
+    .input(z.object({ featureId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      await assertFeatureOrg(input.featureId, ctx.orgId);
+      return db.query.approvals.findMany({
+        where: eq(approvals.featureRequestId, input.featureId),
+        with: {
+          reviewer: true,
+        },
+        orderBy: desc(approvals.createdAt),
+      });
+    }),
 });
+

@@ -245,6 +245,8 @@ export const prReviewWorkflow = inngest.createFunction(
           system: systemPrompt,
           prompt: promptContent,
           modelPurpose: "premiumReview",
+          maxAttempts: 1,
+          timeoutMs: 48_000,
         });
       });
 

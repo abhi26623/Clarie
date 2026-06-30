@@ -14,11 +14,11 @@ import {
   ChevronUp,
   Check,
   Circle,
-  Clock,
   ExternalLink,
   Info,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ApprovalTimeline } from "@/components/ApprovalTimeline";
 
 export default function ApprovalDecisionPage() {
   const params = useParams();
@@ -334,6 +334,9 @@ export default function ApprovalDecisionPage() {
                   {checklist.tasksCount} done
                 </div>
               </div>
+
+              {/* Full Approval History Timeline */}
+              <ApprovalTimeline featureId={id} />
             </div>
 
             {/* RIGHT COLUMN (40%, STICKY): ApprovalPanel */}

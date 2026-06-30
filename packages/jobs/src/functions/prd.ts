@@ -36,27 +36,32 @@ export const prdApprovedWorkflow = inngest.createFunction(
       await writeStep(ctx, "tasks", "running", { label: "Generating engineering tasks" });
       await db.update(featureRequests).set({ status: "tasks_generating" }).where(eq(featureRequests.id, id));
 
-      const result = await generateObjectResilient({
-        schema: tasksSchema,
-        system: "You are a senior engineering lead. Break down the PRD into actionable engineering tasks. Each task should be independently shippable. Use suggestedBranch names like 'feat/dark-mode-toggle'. Prefer FEATURE type unless clearly a bug, chore, test, or docs task.",
-        prompt: `Feature: "${req.title}"\n\nPRD:\nProblem: ${prd.problemStatement}\nGoals: ${JSON.stringify(prd.goals)}\nUser Stories: ${JSON.stringify(prd.userStories)}\nAcceptance Criteria: ${JSON.stringify(prd.acceptanceCriteria)}\n\nGenerate engineering tasks to ship this feature.`,
-        modelPurpose: "default",
-      });
-
-      let order = 0;
-      for (const task of result.tasks) {
-        await db.insert(tasks).values({
-          featureRequestId: id,
-          title: task.title,
-          description: task.description,
-          type: task.type,
-          priority: task.priority,
-          estimatedHours: task.estimatedHours,
-          suggestedBranch: task.suggestedBranch,
-          assignedToAI: task.assignedToAI,
-          order: order++,
+      const taskCount = await step.run("generate-tasks", async () => {
+        const result = await generateObjectResilient({
+          schema: tasksSchema,
+          system: "You are a senior engineering lead. Break down the PRD into actionable engineering tasks. Each task should be independently shippable. Use suggestedBranch names like 'feat/dark-mode-toggle'. Prefer FEATURE type unless clearly a bug, chore, test, or docs task.",
+          prompt: `Feature: "${req.title}"\n\nPRD:\nProblem: ${prd.problemStatement}\nGoals: ${JSON.stringify(prd.goals)}\nUser Stories: ${JSON.stringify(prd.userStories)}\nAcceptance Criteria: ${JSON.stringify(prd.acceptanceCriteria)}\n\nGenerate engineering tasks to ship this feature.`,
+          modelPurpose: "default",
+          maxAttempts: 1,
+          timeoutMs: 48_000,
         });
-      }
+
+        let order = 0;
+        for (const task of result.tasks) {
+          await db.insert(tasks).values({
+            featureRequestId: id,
+            title: task.title,
+            description: task.description,
+            type: task.type,
+            priority: task.priority,
+            estimatedHours: task.estimatedHours,
+            suggestedBranch: task.suggestedBranch,
+            assignedToAI: task.assignedToAI,
+            order: order++,
+          });
+        }
+        return result.tasks.length;
+      });
 
       await db.update(featureRequests).set({ status: "tasks_ready" }).where(eq(featureRequests.id, id));
 
@@ -81,7 +86,7 @@ export const prdApprovedWorkflow = inngest.createFunction(
         return;
       }
 
-      await writeStep(ctx, "tasks", "done", { label: `${result.tasks.length} tasks generated`, count: result.tasks.length });
+      await writeStep(ctx, "tasks", "done", { label: `${taskCount} tasks generated`, count: taskCount });
     });
   },
 );

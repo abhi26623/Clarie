@@ -45,10 +45,12 @@ export async function generateObjectResilient<T>(options: {
   system: string;
   prompt: string;
   maxAttempts?: number;
+  timeoutMs?: number;
   modelPurpose?: ModelPurpose;
 }): Promise<T> {
   let currentPurpose = options.modelPurpose ?? "default";
-  const maxAttempts = options.maxAttempts ?? 3;
+  const maxAttempts = options.maxAttempts ?? 2;
+  const timeoutMs = options.timeoutMs ?? (maxAttempts === 1 ? 48_000 : 24_000);
   let attempt = 0;
   let lastError: unknown = null;
   const messages: CoreMessage[] = [{ role: "user", content: options.prompt }];
@@ -63,7 +65,7 @@ export async function generateObjectResilient<T>(options: {
         schema: options.schema,
         system: options.system,
         messages,
-        abortSignal: AbortSignal.timeout(50_000), // fail fast after 50s; retry handles recovery
+        abortSignal: AbortSignal.timeout(timeoutMs),
       });
       return result.object;
     } catch (e: any) {

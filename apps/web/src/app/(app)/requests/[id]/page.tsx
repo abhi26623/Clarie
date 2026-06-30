@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { ApprovalTimeline } from "@/components/ApprovalTimeline";
 
 function ShippedCelebration({ timeToShipDays }: { timeToShipDays?: number | null }) {
   return (
@@ -642,14 +643,17 @@ export default function FeatureDetailPage() {
         return (
           <div className="space-y-6">
             {feature.status === "fix_needed" && (
-              <div className="card p-6 border border-status-warning-border bg-surface space-y-3">
-                <div className="flex items-center gap-2 text-status-warning-fg font-medium text-sm">
-                  <AlertTriangle size={18} />
-                  <span>Fixes Needed — AI Review & Admin Feedback</span>
+              <div className="space-y-6">
+                <div className="card p-6 border border-status-warning-border bg-surface space-y-3">
+                  <div className="flex items-center gap-2 text-status-warning-fg font-medium text-sm">
+                    <AlertTriangle size={18} />
+                    <span>Fixes Needed — AI Review & Admin Feedback</span>
+                  </div>
+                  <p className="text-sm text-ink-secondary">
+                    {feature.aiReasoning || "Review identified blocking issues or changes requested by admin. Please address the tasks below before resubmitting for approval."}
+                  </p>
                 </div>
-                <p className="text-sm text-ink-secondary">
-                  {feature.aiReasoning || "Review identified blocking issues or changes requested by admin. Please address the tasks below before resubmitting for approval."}
-                </p>
+                <ApprovalTimeline featureId={feature.id} />
               </div>
             )}
 
@@ -719,41 +723,45 @@ export default function FeatureDetailPage() {
         );
 
       case "ready_for_approval":
-        if (!isAdmin) {
-          return (
-            <div className="card p-8 border border-border bg-surface space-y-4">
+        return (
+          <div className="space-y-8">
+            <div className="card p-8 border border-border bg-surface space-y-6">
               <div className="flex items-center gap-3">
-                <ShieldCheck size={20} className="text-ink-tertiary flex-shrink-0" />
-                <h3 className="text-lg font-semibold text-ink">Ready for approval</h3>
+                <ShieldCheck
+                  size={20}
+                  className={isAdmin ? "text-accent flex-shrink-0" : "text-ink-tertiary flex-shrink-0"}
+                />
+                <h3 className="text-lg font-semibold text-ink">
+                  {isAdmin ? "Ready for your approval" : "Ready for approval"}
+                </h3>
               </div>
               <p className="text-sm text-ink-secondary max-w-prose">
-                All checks passed. An admin will review and ship this feature. You'll be notified once it's live.
+                {isAdmin
+                  ? "All engineering tasks are complete and the AI review has passed. Review the full checklist and ship when ready."
+                  : "All checks passed. An admin will review and ship this feature. You'll be notified once it's live."}
               </p>
+              {isAdmin && (
+                <div>
+                  <a
+                    href={`/approvals/${feature.id}`}
+                    className="btn btn-primary inline-flex items-center gap-2"
+                  >
+                    <CheckCircle2 size={16} /> Review &amp; approve
+                  </a>
+                </div>
+              )}
             </div>
-          );
-        }
-        return (
-          <div className="card p-8 border border-border bg-surface space-y-6">
-            <div className="flex items-center gap-3">
-              <ShieldCheck size={20} className="text-accent flex-shrink-0" />
-              <h3 className="text-lg font-semibold text-ink">Ready for your approval</h3>
-            </div>
-            <p className="text-sm text-ink-secondary max-w-prose">
-              All engineering tasks are complete and the AI review has passed. Review the full checklist and ship when ready.
-            </p>
-            <div>
-              <a
-                href={`/approvals/${feature.id}`}
-                className="btn btn-primary inline-flex items-center gap-2"
-              >
-                <CheckCircle2 size={16} /> Review &amp; approve
-              </a>
-            </div>
+            <ApprovalTimeline featureId={feature.id} />
           </div>
         );
 
       case "shipped":
-        return <ShippedCelebration timeToShipDays={feature.timeToShipDays} />;
+        return (
+          <div className="space-y-8">
+            <ShippedCelebration timeToShipDays={feature.timeToShipDays} />
+            <ApprovalTimeline featureId={feature.id} />
+          </div>
+        );
 
       case "failed":
         return (
@@ -775,13 +783,16 @@ export default function FeatureDetailPage() {
       case "rejected":
       case "out_of_scope":
         return (
-          <div className="card p-8 border border-border bg-surface space-y-4">
-            <h3 className="text-xl font-semibold text-ink">
-              This idea will not move forward right now
-            </h3>
-            <p className="text-sm text-ink-secondary max-w-md">
-              {feature.aiReasoning ?? "The team reviewed this request and decided not to continue with it."}
-            </p>
+          <div className="space-y-8">
+            <div className="card p-8 border border-border bg-surface space-y-4">
+              <h3 className="text-xl font-semibold text-ink">
+                This idea will not move forward right now
+              </h3>
+              <p className="text-sm text-ink-secondary max-w-md">
+                {feature.aiReasoning ?? "The team reviewed this request and decided not to continue with it."}
+              </p>
+            </div>
+            {feature.status === "rejected" && <ApprovalTimeline featureId={feature.id} />}
           </div>
         );
 

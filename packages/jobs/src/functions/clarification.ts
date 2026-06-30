@@ -4,6 +4,7 @@ import { db, featureRequests, clarificationThreads, prds, AI_CREDIT_COSTS, consu
 import { generateObjectResilient } from "@claire/ai";
 import { inngest } from "../client";
 import { runWorkflow, writeStep } from "../run-workflow";
+import { getWorkspaceExistingFeaturesContext, TRIAGE_SYSTEM_PROMPT } from "./intake";
 
 const decisionSchema = z.object({
   decision: z.enum(["proceed", "duplicate", "feature_exists", "clarification_needed", "bug_report", "out_of_scope"]),
@@ -52,12 +53,28 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
         `Q: ${t.question}\nA: ${t.answer ?? "(unanswered)"}`
       ).join("\n\n");
 
-      const result = await generateObjectResilient({
-        schema: decisionSchema,
-        system: "You are a senior product manager triaging feature requests. Classify the request precisely based on the original request and clarification answers. Never reference source code.",
-        prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\n\nClarification context:\n${context}\n\nClassify and decide how to handle it.`,
-        modelPurpose: "light",
+      const existingContext = await getWorkspaceExistingFeaturesContext(req.organizationId, id);
+
+      const answeredCount = threads.filter(t => Boolean(t.answer)).length;
+
+      let result = await step.run("triage-decision", async () => {
+        return await generateObjectResilient({
+          schema: decisionSchema,
+          system: TRIAGE_SYSTEM_PROMPT,
+          prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\n\nClarification context:\n${context}${existingContext}\n\nClassify and decide how to handle it.`,
+          modelPurpose: "light",
+          maxAttempts: 2,
+          timeoutMs: 12_000,
+        });
       });
+
+      // Enforce round cap: if user already answered 2 or more rounds, force proceed to PRD with all context
+      if (answeredCount >= 2 && result.decision === "clarification_needed") {
+        result = {
+          decision: "proceed",
+          reasoning: "Clarification round cap reached; proceeding to PRD with accumulated Q&A history.",
+        };
+      }
 
       // Consume triage credit AFTER successful re-analysis.
       // Wrapped in step.run for true Inngest idempotency across retries.
@@ -111,22 +128,26 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
       await writeStep(ctx, "prd", "running", { label: "Generating product requirements" });
       await db.update(featureRequests).set({ status: "prd_generating" }).where(eq(featureRequests.id, id));
 
-      const prd = await generateObjectResilient({
-        schema: prdSchema,
-        system: "You are a senior product manager. Write a thorough PRD from the feature request and clarification context below.",
-        prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\n\nClarification:\n${context}\n\nGenerate a complete PRD.`,
-        modelPurpose: "default",
-      });
+      await step.run("generate-prd", async () => {
+        const prd = await generateObjectResilient({
+          schema: prdSchema,
+          system: "You are a senior product manager. Write a thorough PRD from the feature request and clarification context below.",
+          prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\n\nClarification:\n${context}\n\nGenerate a complete PRD.`,
+          modelPurpose: "default",
+          maxAttempts: 1,
+          timeoutMs: 48_000,
+        });
 
-      await db.insert(prds).values({
-        featureRequestId: id,
-        problemStatement: prd.problemStatement,
-        goals: prd.goals,
-        nonGoals: prd.nonGoals,
-        userStories: prd.userStories,
-        acceptanceCriteria: prd.acceptanceCriteria,
-        edgeCases: prd.edgeCases,
-        successMetrics: prd.successMetrics,
+        await db.insert(prds).values({
+          featureRequestId: id,
+          problemStatement: prd.problemStatement,
+          goals: prd.goals,
+          nonGoals: prd.nonGoals,
+          userStories: prd.userStories,
+          acceptanceCriteria: prd.acceptanceCriteria,
+          edgeCases: prd.edgeCases,
+          successMetrics: prd.successMetrics,
+        });
       });
 
       // Consume prd-gen credit AFTER successful PRD generation.
