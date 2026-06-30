@@ -17,7 +17,7 @@ Claire is an AI-assisted product delivery platform. You describe a feature in pl
 |---|---|
 | **Live URL** | <!-- TODO: add Vercel URL after deploy --> |
 | **Demo login** | `demo@claire.app` / `demo123456` |
-| **Demo video** | <!-- TODO: add video link --> |
+| **Demo video** | **https://www.youtube.com/watch?v=QrYOWCcL3cU** |
 
 The demo workspace ("Claire Demo") is pre-seeded with features spanning every stage of the pipeline, so you can explore the full lifecycle immediately after signing in.
 
