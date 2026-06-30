@@ -3,13 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Inbox, Code2, CheckSquare, FileText, CreditCard, Settings, Menu } from "lucide-react";
+import { LayoutDashboard, Inbox, Code2, CheckSquare, FileText, CreditCard, Settings, Menu, Users } from "lucide-react";
 import { SlideOver } from "@claire/ui";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/features", label: "Feature requests", icon: Inbox },
   { href: "/settings/github", label: "GitHub", icon: Code2 },
+  { href: "/settings/members", label: "Team members", icon: Users },
   { href: "/reviews", label: "Reviews", icon: FileText },
   { href: "/approvals", label: "Approvals", icon: CheckSquare },
   { href: "/billing", label: "Billing", icon: CreditCard },
