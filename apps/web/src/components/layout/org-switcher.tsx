@@ -42,14 +42,15 @@ export function OrgSwitcher() {
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           className="min-w-[200px] bg-canvas border border-subtle rounded-md shadow-lg p-1 z-[var(--z-dropdown)]"
+          side="bottom"
           align="start"
-          sideOffset={4}
+          sideOffset={8}
         >
           {orgs.map((org) => (
             <DropdownMenu.Item
               key={org.id}
               className="flex items-center justify-between px-3 py-2 text-sm rounded-sm cursor-pointer hover:bg-surface-raised outline-none select-none text-ink-secondary data-[highlighted]:text-ink data-[highlighted]:bg-surface-raised"
-              onClick={() => handleSwitch(org.id)}
+              onSelect={() => handleSwitch(org.id)}
             >
               <span className="truncate">{org.name}</span>
               {org.id === activeOrgId && <Check size={14} className="text-accent" />}

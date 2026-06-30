@@ -36,6 +36,7 @@ export function UserMenu() {
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           className="min-w-[200px] bg-canvas border border-subtle rounded-md shadow-lg p-1 z-[var(--z-dropdown)]"
+          side="bottom"
           align="end"
           sideOffset={8}
         >
@@ -46,7 +47,7 @@ export function UserMenu() {
           
           <DropdownMenu.Item
             className="flex items-center gap-2 px-3 py-2 text-sm rounded-sm cursor-pointer outline-none select-none text-red-600 data-[highlighted]:bg-red-50"
-            onClick={handleSignOut}
+            onSelect={handleSignOut}
           >
             <LogOut size={14} />
             <span>Sign out</span>

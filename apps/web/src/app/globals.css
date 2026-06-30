@@ -186,12 +186,12 @@
   /* --------------------------------------------------------------------------
      7. Z-index scale — semantic
      -------------------------------------------------------------------------- */
-  --z-dropdown:    100;
+  --z-dropdown:    300;
   --z-sticky:      200;
-  --z-modal-bg:    300;
-  --z-modal:       400;
-  --z-toast:       500;
-  --z-tooltip:     600;
+  --z-modal-bg:    400;
+  --z-modal:       500;
+  --z-toast:       600;
+  --z-tooltip:     700;
 
   /* --------------------------------------------------------------------------
      8. Motion
@@ -440,6 +440,14 @@ code, kbd, samp, pre {
 }
 .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .btn-primary:active { background: var(--accent-active); border-color: var(--accent-active); }
+
+/* Ensure anchor elements using .btn-primary never inherit the global link color */
+a.btn-primary,
+a.btn-primary:visited,
+a.btn-primary:hover,
+a.btn-primary:active {
+  color: var(--ink-inverse);
+}
 
 .btn-secondary {
   background: var(--surface);
