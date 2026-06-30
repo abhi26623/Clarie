@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      # Complete dummy env suite required by packages/config/src/env.ts and static compilation
+      DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+      BETTER_AUTH_SECRET: ci_dummy_secret_at_least_32_characters_long
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      OPENROUTER_API_KEY: ci_dummy_openrouter_key
+      OPENROUTER_MODEL_LIGHT: google/gemini-2.5-flash-lite
+      OPENROUTER_MODEL_DEFAULT: google/gemini-2.5-flash
+      OPENROUTER_MODEL_REVIEW: z-ai/glm-5.2
+      OPENROUTER_MODEL_PREMIUM_REVIEW: anthropic/claude-sonnet-4.6
+      INNGEST_EVENT_KEY: local
+      INNGEST_SIGNING_KEY: signkey-local-placeholder
+      GITHUB_APP_ID: "12345"
+      GITHUB_APP_CLIENT_ID: Iv1.dummy
+      GITHUB_APP_CLIENT_SECRET: dummy_client_secret
+      GITHUB_APP_PRIVATE_KEY: dummy_private_key
+      GITHUB_APP_WEBHOOK_SECRET: dummy_webhook_secret
+      GITHUB_APP_SLUG: claire-ai-app
+      NEXT_PUBLIC_GITHUB_APP_INSTALL_URL: https://github.com/apps/claire-ai-app/installations/new
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: rzp_test_dummy_key_id
+      RAZORPAY_KEY_ID: rzp_test_dummy_key_id
+      RAZORPAY_KEY_SECRET: dummy_razorpay_secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm -r run typecheck
+      - name: Build
+        run: pnpm --filter web build
+      - name: Test
+        run: pnpm --filter @claire/db test
