@@ -70,6 +70,28 @@ packages/
 
 ---
 
+## 📱 App pages
+
+| Route | Description |
+|---|---|
+| `/dashboard` | Pipeline board — all feature requests across every stage, with the "New request" slide-over and keyboard shortcut `N` |
+| `/features` | Full feature request backlog — same pipeline strip + card list as the dashboard, dedicated view |
+| `/requests/[id]` | Feature detail — full timeline, PRD, tasks, clarification threads, PR links, workflow steps |
+| `/approvals` | Admin-only approval queue — features in `ready_for_approval` with AI review summaries |
+| `/approvals/[id]` | Approval decision page — PRD summary, AI review findings, task completion, Approve & Ship / Send back |
+| `/reviews` | AI code review list |
+| `/reviews/[id]` | AI review detail — inline issues, severity breakdown, diff context |
+| `/settings` | Settings hub — links to GitHub integration, team members, and billing |
+| `/settings/github` | GitHub App installation + connected repos |
+| `/settings/members` | Team members list (name, email, role, join date) + invite link generation for admins/owners |
+| `/billing` | Plan status + Razorpay upgrade flow |
+| `/p/[slug]` | Public feature request portal (no login required) |
+| `/p/[slug]/r/[token]` | Public request tracking page (submitter view) |
+| `/join/[token]` | Workspace invite link redemption |
+| `/onboarding` | New workspace creation flow |
+
+---
+
 ## 🔁 The pipeline (the heart of Claire)
 
 Every feature request moves through a single status enum (`feature_status`) that drives the board columns and the AI workflow:
@@ -159,8 +181,9 @@ Key tables (see `packages/db/src/schema.ts`):
 | `user`, `account`, `session` | BetterAuth identity (email/password + GitHub) |
 | `organization`, `member` | Workspaces and membership/roles |
 | `workspace_settings` | Per-org plan + limits (`plan`, `aiCreditsLimit`, `aiCreditsUsed`, `repoLimit`, `memberLimit`) |
-| `invite_links` | Tokenized join links (`token`, `organizationId`, `expiresAt`) |
+| `invite_links` | Tokenized join links (`token`, `organizationId`, `expiresAt`) — reusable 7-day tokens consumed by `/join/[token]` |
 | `feature_requests` | Feature requests + their `feature_status` (drives the pipeline) |
+| `workflow_steps` | Polymorphic progress log (`entityType`, `entityId`, `step`, `status`) — written by Inngest functions to record each pipeline step. **Note:** uses a polymorphic `(entityType, entityId: text)` pattern with no typed FK; query directly with `eq(workflowSteps.entityId, String(id))` — do **not** join via Drizzle `with: { workflowSteps }` (will 500). |
 | `prds` | Product requirements documents (1:1 with feature) |
 | `tasks` | Engineering tasks broken down from a PRD |
 | `repositories` | Connected GitHub repos + installation tracking |
@@ -255,12 +278,15 @@ One-time **Upgrade to Pro** flow: server-created order → Razorpay Standard Che
 
 1. Sign in as `demo@claire.app` / `demo123456`.
 2. Explore the pre-seeded board across all pipeline stages.
-3. **Submit a new feature** → watch AI triage it live.
-4. **Approve a PRD** on a `prd_ready` feature → tasks generate.
-5. **Review an approval** on a `ready_for_approval` feature.
-6. **Ship a feature** → confetti 🎉.
-7. **Replay a webhook** to re-run an AI review offline.
-8. **Upgrade to Pro** via Razorpay test checkout.
+3. **Submit a new feature** via the "New request" button or `N` shortcut → watch AI triage it live in the slide-over panel.
+4. **Browse the full backlog** at `/features` — use the pipeline stage tabs to filter by Discovery / Planning / Building / etc.
+5. **Approve a PRD** on a `prd_ready` feature → tasks generate.
+6. **Review an approval** on a `ready_for_approval` feature → inspect PRD summary, AI review findings, and task completion.
+7. **Ship a feature** → confetti 🎉.
+8. **Explore Settings** → navigate to `/settings` for the hub, `/settings/github` to connect repos, `/settings/members` to view the team and generate an invite link.
+9. **Invite a team member** — generate a reusable 7-day link at `/settings/members`, open it in an incognito window, confirm `/join/[token]` adds the member.
+10. **Replay a webhook** to re-run an AI review offline.
+11. **Upgrade to Pro** via Razorpay test checkout.
 
 ---
 
