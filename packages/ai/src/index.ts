@@ -66,6 +66,7 @@ export async function generateObjectResilient<T>(options: {
         system: options.system,
         messages,
         abortSignal: AbortSignal.timeout(timeoutMs),
+        maxRetries: 0,
       });
       return result.object;
     } catch (e: any) {

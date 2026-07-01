@@ -175,7 +175,7 @@ export const intakeWorkflow = inngest.createFunction(
           prompt: `Feature request title: "${req.title}"\nDetails: "${req.body}"${existingContext}\n\nClassify and decide how to handle it.`,
           modelPurpose: "light",
           maxAttempts: 1,
-          timeoutMs: 30_000,
+          timeoutMs: 55_000,
         });
       });
 

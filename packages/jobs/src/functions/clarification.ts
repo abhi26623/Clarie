@@ -64,18 +64,17 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
         `Q: ${t.question}\nA: ${t.answer ?? "(unanswered)"}`
       ).join("\n\n");
 
-      const existingContext = await getWorkspaceExistingFeaturesContext(req.organizationId, id);
-
       const answeredCount = threads.filter(t => Boolean(t.answer)).length;
 
       let result = await step.run("triage-decision", async () => {
+        const existingContext = await getWorkspaceExistingFeaturesContext(req.organizationId, id);
         return await generateObjectResilient({
           schema: decisionSchema,
           system: TRIAGE_SYSTEM_PROMPT,
           prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\n\nClarification context:\n${context}${existingContext}\n\nClassify and decide how to handle it.`,
           modelPurpose: "default",
           maxAttempts: 1,
-          timeoutMs: 20_000,
+          timeoutMs: 55_000,
         });
       });
 
