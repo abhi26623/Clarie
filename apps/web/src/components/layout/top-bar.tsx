@@ -5,6 +5,7 @@ import { OrgSwitcher } from "./org-switcher";
 import { UserMenu } from "./user-menu";
 import { MobileNav } from "./sidebar";
 import { SetupBar } from "./setup-bar";
+import { ActionCenter } from "./action-center";
 
 export function TopBar() {
   return (
@@ -14,7 +15,8 @@ export function TopBar() {
           <MobileNav />
           <OrgSwitcher />
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
+          <ActionCenter />
           <UserMenu />
         </div>
       </header>

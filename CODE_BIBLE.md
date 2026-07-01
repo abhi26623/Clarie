@@ -57,3 +57,13 @@ End with: pnpm build passes, zero type errors.
 - Webhooks (if touched) verify signatures with `timingSafeEqual` and always return 200.
 - No hardcoded GitHub/PR data.
 - The prompt's own ACCEPTANCE list is satisfied.
+
+---
+
+## Action Center
+
+- **Three buckets:** `clarification_needed`, `ready_for_approval` (admin/owner only), `fix_needed`. Never use `"failed"` — it is a workflow crash status, not a human action item.
+- **Badge uses true `count()`,** rows use `limit: 5` + "+N more". Badge must equal the count on the respective list page (drift = bug).
+- **`ready_for_approval` filter is identical to `approval.listPending`** — same table, same where clause. Do not invent a second query definition.
+- **Link ids:** `/requests/[id]` and `/approvals/[id]` take `featureRequests.id`. `/reviews/[id]` takes `aiReviews.id` — do not link needs-fixes items there; link to `/requests/[featureId]` instead.
+- **Role gate:** derive from `ctx.memberRole` (set by `protectedOrgProcedure` via `ensureActiveOrganization`). Do not re-query the `member` table for this.

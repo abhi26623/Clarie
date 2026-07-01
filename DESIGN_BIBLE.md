@@ -43,3 +43,22 @@ DESIGN DIRECTION — ShipFlow (read before writing any UI):
 **LOADING:** skeletons only, never spinners. Skeleton matches the real layout it replaces.
 
 **WOW BUDGET:** spend boldness in ONE place per screen. Everything else stays quiet. If two things compete for attention, cut one.
+
+---
+
+## Action Center (Bell Dropdown)
+
+**Color:** Each bucket has one semantic hue tied to its meaning. The full-strength token is allowed ONLY on the icon chip and the count badge. Row text is always `var(--ink)`. Dividers are `var(--border-subtle)`.
+
+| Bucket | Icon chip bg | Icon chip fg | Count badge |
+|:---|:---|:---|:---|
+| Clarifications | `var(--status-warning-bg)` | `var(--status-warning-fg)` | same pair |
+| Approvals | `var(--status-active-bg)` | `var(--status-active-fg)` | same pair |
+| Needs fixes | `var(--status-error-bg)` | `var(--status-error-fg)` | same pair |
+| Empty state | `var(--status-success-bg)` | `var(--status-success-fg)` | — |
+
+**Bell badge:** Uses `var(--status-error-fg)` with `var(--ink-inverse)` text. Represents total urgency (all three buckets).
+
+**Banned in Action Center:** info-blue, gradients, glassmorphism, colored glows >8px, raw hex codes, new fonts, custom spinners, restyling any shell element beyond adding the bell icon, and colorizing row backgrounds.
+
+**Empty state:** "You're all caught up." — success accent only (`var(--status-success-fg)` text on `var(--status-success-bg)` background). Not gray-on-gray.

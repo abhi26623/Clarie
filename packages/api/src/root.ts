@@ -8,6 +8,7 @@ import { reviewRouter } from "./routers/review";
 import { approvalRouter } from "./routers/approval";
 import { billingRouter } from "./routers/billing";
 import { workflowRouter } from "./routers/workflow";
+import { actionCenterRouter } from "./routers/action-center";
 
 export const appRouter = router({
   health: publicProcedure.query(() => ({ ok: true, ts: Date.now() })),
@@ -21,6 +22,7 @@ export const appRouter = router({
   approval: approvalRouter,
   billing: billingRouter,
   workflow: workflowRouter,
+  actionCenter: actionCenterRouter,
 });
 
 export type AppRouter = typeof appRouter;
