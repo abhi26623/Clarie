@@ -61,18 +61,24 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
         .set({ status: "analyzing" })
         .where(and(eq(featureRequests.id, id), notInArray(featureRequests.status, ["analyzing", "prd_generating", ...POST_TRIAGE_PHASES] as any)));
 
+      const answeredThreads = threads.filter(t => Boolean(t.answer));
       const context = threads.map(t =>
         `Q: ${t.question}\nA: ${t.answer ?? "(unanswered)"}`
       ).join("\n\n");
 
-      const answeredCount = threads.filter(t => Boolean(t.answer)).length;
+      const alreadyAsked = answeredThreads.map((t, i) => `${i + 1}. "${t.question}"`).join("\n");
+      const noRepeatInstruction = alreadyAsked
+        ? `\n\nALREADY ASKED (do NOT ask these again or any rephrasing of them):\n${alreadyAsked}`
+        : "";
+
+      const answeredCount = answeredThreads.length;
 
       let result = await step.run("triage-decision", async () => {
         const existingContext = await getWorkspaceExistingFeaturesContext(req.organizationId, id);
         return await generateObjectResilient({
           schema: decisionSchema,
           system: TRIAGE_SYSTEM_PROMPT,
-          prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\n\nClarification context:\n${context}${existingContext}\n\nClassify and decide how to handle it.`,
+          prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\n\nClarification Q&A so far:\n${context}${noRepeatInstruction}${existingContext}\n\nThe user has answered the clarification above. Based on ALL the context, decide: proceed to PRD, or ask ONE genuinely NEW clarifying question not already covered above.`,
           modelPurpose: "light",
           maxAttempts: 1,
           timeoutMs: 55_000,
