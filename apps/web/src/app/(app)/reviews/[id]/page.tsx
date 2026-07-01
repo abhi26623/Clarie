@@ -11,6 +11,7 @@ import {
   ShieldAlert, Zap, Bug, FileCode, TestTube, AlertTriangle, CheckCircle,
   GitPullRequest, Clock,
 } from "lucide-react";
+import { RequirementCoverageCard } from "@/components/RequirementCoverageCard";
 
 /* ── Type icons by issue type ─────────────────────── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,6 +201,8 @@ function IssueGroup({
     </div>
   );
 }
+
+
 
 /* ── History timeline ─────────────────────────────── */
 function ReviewHistory({ history, currentId }: { history: any[]; currentId: number }) {
@@ -465,6 +468,13 @@ export default function ReviewDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Requirement Coverage */}
+      <RequirementCoverageCard
+        verdicts={data.criteriaVerdicts as any}
+        prd={(data.featureRequest as any)?.prd}
+        featureRequestId={data.featureRequest?.id}
+      />
 
       {/* Issues — grouped by severity */}
       {issues.length > 0 ? (

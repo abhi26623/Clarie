@@ -31,10 +31,26 @@ async function main() {
     { title: "Bulk archive", body: "Archive many tasks at once.", status: "shipped" as const },
   ];
   for (const r of reqs) {
-    await db.insert(featureRequests).values({
+    const [feat] = await db.insert(featureRequests).values({
       organizationId: orgId, source: "portal", submitterName: "Customer",
       submitterEmail: "c@acme.dev", title: r.title, body: r.body, status: r.status,
-    });
+    }).returning();
+
+    if (["prd_ready", "tasks_ready", "ready_for_approval", "shipped"].includes(r.status)) {
+      await db.insert(prds).values({
+        featureRequestId: feat.id,
+        problemStatement: `Users need ${r.title.toLowerCase()} to improve workflow efficiency.`,
+        goals: [`Implement ${r.title}`, "Ensure high test coverage"],
+        nonGoals: ["Complex enterprise configurations"],
+        userStories: [`As a user, I want ${r.title.toLowerCase()} so that I can work faster.`],
+        acceptanceCriteria: [
+          { id: "ac-0", text: `${r.title} UI component is visible and responsive.` },
+          { id: "ac-1", text: `Backend API handles ${r.title.toLowerCase()} requests reliably.` },
+        ],
+        edgeCases: ["Network disconnection during request"],
+        successMetrics: ["99% task success rate"],
+      });
+    }
   }
   console.log("Seeded demo workspace.");
   process.exit(0);

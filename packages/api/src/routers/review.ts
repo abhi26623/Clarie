@@ -40,7 +40,7 @@ export const reviewRouter = router({
         with: {
           issues: true,
           pullRequest: { with: { repository: true } },
-          featureRequest: true,
+          featureRequest: { with: { prd: true } },
         },
       });
 

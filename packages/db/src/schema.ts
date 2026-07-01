@@ -249,6 +249,7 @@ export const aiReviews = pgTable("ai_reviews", {
   summary: text("summary"),
   passed: boolean("passed"),
   confidence: integer("confidence"),
+  criteriaVerdicts: jsonb("criteria_verdicts"),
   model: text("model"),
   reviewNumber: integer("review_number").default(1),
   completedAt: timestamp("completed_at", { mode: "string" }),

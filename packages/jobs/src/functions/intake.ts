@@ -106,7 +106,7 @@ const prdSchema = z.object({
   goals: z.array(z.string()),
   nonGoals: z.array(z.string()),
   userStories: z.array(z.string()),
-  acceptanceCriteria: z.array(z.string()),
+  acceptanceCriteria: z.array(z.object({ id: z.string(), text: z.string() })),
   edgeCases: z.array(z.string()),
   successMetrics: z.array(z.string()),
 });
@@ -213,7 +213,7 @@ export const intakeWorkflow = inngest.createFunction(
       await step.run("generate-prd", async () => {
         const prd = await generateObjectResilient({
           schema: prdSchema,
-          system: "You are a senior product manager. Write a thorough PRD from the feature request below.",
+          system: "You are a senior product manager. Write a thorough PRD from the feature request below. Generate acceptanceCriteria as an array of objects with a short unique slug id (e.g. 'auth-redirect', 'rate-limit-header') and a text field. Never use bare numbers as ids.",
           prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\nAI reasoning: "${result.reasoning}"\n\nGenerate a complete PRD.`,
           modelPurpose: "default",
           maxAttempts: 1,

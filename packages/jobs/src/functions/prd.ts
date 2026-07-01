@@ -40,7 +40,7 @@ export const prdApprovedWorkflow = inngest.createFunction(
         const result = await generateObjectResilient({
           schema: tasksSchema,
           system: "You are a senior engineering lead. Break down the PRD into actionable engineering tasks. Each task should be independently shippable. Use suggestedBranch names like 'feat/dark-mode-toggle'. Prefer FEATURE type unless clearly a bug, chore, test, or docs task.",
-          prompt: `Feature: "${req.title}"\n\nPRD:\nProblem: ${prd.problemStatement}\nGoals: ${JSON.stringify(prd.goals)}\nUser Stories: ${JSON.stringify(prd.userStories)}\nAcceptance Criteria: ${JSON.stringify(prd.acceptanceCriteria)}\n\nGenerate engineering tasks to ship this feature.`,
+          prompt: `Feature: "${req.title}"\n\nPRD:\nProblem: ${prd.problemStatement}\nGoals: ${JSON.stringify(prd.goals)}\nUser Stories: ${JSON.stringify(prd.userStories)}\nAcceptance Criteria: ${JSON.stringify((prd.acceptanceCriteria as any[])?.map((ac) => typeof ac === "string" ? ac : ac.text) ?? [])}\n\nGenerate engineering tasks to ship this feature.`,
           modelPurpose: "default",
           maxAttempts: 1,
           timeoutMs: 48_000,

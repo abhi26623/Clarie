@@ -458,7 +458,7 @@ export default function FeatureDetailPage() {
 
               <div>
                 <label className="block text-sm font-medium text-ink-secondary mb-1">
-                  Acceptance Criteria (JSON array)
+                  {"Acceptance Criteria (JSON array of {id, text} objects)"}
                 </label>
                 <textarea
                   value={editAcceptanceCriteria}
@@ -568,10 +568,10 @@ export default function FeatureDetailPage() {
               <motion.div variants={itemVariant} className="card p-6 border border-border bg-surface">
                 <h3 className="text-label mb-4">Acceptance Criteria</h3>
                 <div className="space-y-3">
-                  {(prd.acceptanceCriteria as string[] | null)?.map((crit, idx) => (
+                  {(prd.acceptanceCriteria as Array<{ id: string; text: string } | string> | null)?.map((crit, idx) => (
                     <div key={idx} className="flex items-center gap-3 p-3 bg-canvas border border-subtle rounded-md text-sm text-ink-secondary">
                       <Check size={16} className="text-accent flex-shrink-0" />
-                      <span>{crit}</span>
+                      <span>{typeof crit === "string" ? crit : crit.text}</span>
                     </div>
                   ))}
                 </div>

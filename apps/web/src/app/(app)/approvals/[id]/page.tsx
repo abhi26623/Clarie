@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ApprovalTimeline } from "@/components/ApprovalTimeline";
+import { RequirementCoverageCard } from "@/components/RequirementCoverageCard";
 
 export default function ApprovalDecisionPage() {
   const params = useParams();
@@ -245,12 +246,12 @@ export default function ApprovalDecisionPage() {
                         </ul>
                       </div>
                     )}
-                    {prd.acceptanceCriteria && (prd.acceptanceCriteria as string[]).length > 0 && (
+                    {prd.acceptanceCriteria && (prd.acceptanceCriteria as any[]).length > 0 && (
                       <div>
                         <h4 className="font-medium text-ink mb-1">Acceptance Criteria</h4>
                         <ul className="space-y-1 list-disc pl-4 text-xs">
-                          {(prd.acceptanceCriteria as string[]).map((ac, idx) => (
-                            <li key={idx}>{ac}</li>
+                          {(prd.acceptanceCriteria as Array<{ id: string; text: string } | string>).map((ac, idx) => (
+                            <li key={idx}>{typeof ac === "string" ? ac : ac.text}</li>
                           ))}
                         </ul>
                       </div>
@@ -273,6 +274,12 @@ export default function ApprovalDecisionPage() {
                 {latestReview ? (
                   <div className="space-y-4">
                     <p className="text-sm text-ink-secondary">{latestReview.summary || "AI review completed with no additional summary."}</p>
+
+                    <RequirementCoverageCard
+                      verdicts={latestReview.criteriaVerdicts}
+                      prd={prd}
+                      featureRequestId={feature.id}
+                    />
 
                     {latestReview.issues && latestReview.issues.length > 0 && (
                       <div className="space-y-3">

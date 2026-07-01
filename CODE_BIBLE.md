@@ -16,6 +16,7 @@
 8. **After each prompt:** run `pnpm build` (or `pnpm typecheck`) and fix ALL type errors before declaring done.
 9. **Inngest for long work.** Anything slow (PRD gen, task gen, repo analysis, reviews, readiness) runs as a step function and records `workflow_steps` scoped by `entityId`.
 10. **AI calls go through `packages/ai` `safeGenerate`** (schema-repair retry). Never call the model raw with an unvalidated schema.
+11. **PRD Acceptance Criteria must remain structured** (`{ id, text }[]`). AI PR reviews (`review.ts`) must reconcile against the canonical PRD criteria list and enforce code evidence guards (`FILE_REF_RE`).
 
 ---
 

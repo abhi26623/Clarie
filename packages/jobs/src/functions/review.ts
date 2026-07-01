@@ -36,7 +36,34 @@ const ReviewOutputSchema = z.object({
       lineNumber: z.number().nullable(), // null if not pinnable to a single line
     })
   ),
+  criteriaVerdicts: z.array(
+    z.object({
+      criterionId: z.string(),
+      verdict: z.enum(["met", "partial", "not_met"]),
+      evidence: z.string(),
+    })
+  ).optional(),
 });
+
+// ---------------------------------------------------------------------------
+// Helper: Ensure acceptanceCriteria are structured objects { id, text }
+// ---------------------------------------------------------------------------
+async function ensureStructuredCriteria(
+  prd: { id: number; acceptanceCriteria: unknown } | null | undefined
+): Promise<Array<{ id: string; text: string }>> {
+  if (!prd || !prd.acceptanceCriteria) return [];
+  const raw = prd.acceptanceCriteria as any;
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  if (typeof raw[0] === "object" && raw[0]?.id) return raw;
+  const structured = raw.map((text: any, i: number) => ({
+    id: `ac-${i}`,
+    text: typeof text === "string" ? text : String(text),
+  }));
+  await db.update(prds)
+    .set({ acceptanceCriteria: structured })
+    .where(eq(prds.id, prd.id));
+  return structured;
+}
 
 // ---------------------------------------------------------------------------
 // Inngest PR review workflow
@@ -212,9 +239,11 @@ export const prReviewWorkflow = inngest.createFunction(
       // ------------------------------------------------------------------
       const reviewResult = await step.run("run_ai", async () => {
         let systemPrompt = `You are a Senior QA and Engineering Reviewer.\n`;
+        const canonicalCriteria = await ensureStructuredCriteria(prd);
 
         if (feature && prd) {
           systemPrompt += `Judge: Does the code satisfy the PRD problem + goals? All acceptance criteria met? Edge cases handled? Security concerns? Performance? Production-ready?\n`;
+          systemPrompt += `For EACH acceptance criterion (by id), decide met / partial / not_met based ONLY on evidence in the diff. Provide ONE short sentence naming the specific file. If the diff does not implement a criterion, mark not_met. Evaluate EVERY criterion — never skip or summarize. Return the EXACT id provided. Do NOT modify, normalize, rename, or invent ids.\n`;
         } else {
           // Unlinked PR — code-quality / security only, no PRD checks
           systemPrompt += `No feature request is linked to this PR. Review only for code quality, security, performance, and obvious production risks.\n`;
@@ -231,7 +260,10 @@ export const prReviewWorkflow = inngest.createFunction(
           if (prd) {
             promptContent += `PRD Problem: ${prd.problemStatement}\n`;
             promptContent += `PRD Goals: ${JSON.stringify(prd.goals)}\n`;
-            promptContent += `Acceptance Criteria: ${JSON.stringify(prd.acceptanceCriteria)}\n`;
+            promptContent += `Acceptance Criteria (evaluate each):\n`;
+            for (const ac of canonicalCriteria) {
+              promptContent += `  ${ac.id}: ${ac.text}\n`;
+            }
           }
         }
 
@@ -240,7 +272,7 @@ export const prReviewWorkflow = inngest.createFunction(
           promptContent += `File: ${f.filename}\nPatch:\n${f.patch}\n---\n`;
         }
 
-        return await generateObjectResilient({
+        const rawResult = await generateObjectResilient({
           schema: ReviewOutputSchema,
           system: systemPrompt,
           prompt: promptContent,
@@ -248,6 +280,41 @@ export const prReviewWorkflow = inngest.createFunction(
           maxAttempts: 1,
           timeoutMs: 48_000,
         });
+
+        const rawVerdicts = rawResult.criteriaVerdicts ?? [];
+        const FILE_REF_RE = /[\w./-]+\.(ts|tsx|js|jsx|css|scss|sql|json|md|py|go|rb|java|prisma)\b/;
+        const guardedVerdicts = rawVerdicts.map((v) => {
+          if (v.verdict === "met" && !FILE_REF_RE.test(v.evidence)) {
+            return { ...v, verdict: "partial" as const };
+          }
+          return v;
+        });
+
+        const reconciledVerdicts = canonicalCriteria.map((ac) => {
+          let found = guardedVerdicts.find((v) => v.criterionId === ac.id);
+          if (!found) {
+            const normAc = ac.id.toLowerCase().replace(/[^a-z0-9]/g, "");
+            found = guardedVerdicts.find((v) => v.criterionId.toLowerCase().replace(/[^a-z0-9]/g, "") === normAc);
+            if (found) {
+              console.warn(`[PR Review] Normalized match drift for AC ID: expected "${ac.id}", AI returned "${found.criterionId}"`);
+            } else {
+              console.warn(`[PR Review] Unmatched AC ID from AI review. Defaulting to not_met for canonical ID: "${ac.id}"`);
+            }
+          }
+          return found
+            ? { criterionId: ac.id, text: ac.text, verdict: found.verdict, evidence: found.evidence }
+            : {
+                criterionId: ac.id,
+                text: ac.text,
+                verdict: "not_met" as const,
+                evidence: "Not implemented in this diff.",
+              };
+        });
+
+        return {
+          ...rawResult,
+          criteriaVerdicts: reconciledVerdicts,
+        };
       });
 
       await logStep("analyzing_code", "done", "Analyzed code");
@@ -297,6 +364,7 @@ export const prReviewWorkflow = inngest.createFunction(
             passed: reviewResult.passed,
             confidence: reviewResult.confidence,
             summary: reviewResult.summary,
+            criteriaVerdicts: reviewResult.criteriaVerdicts ?? null,
             completedAt: new Date().toISOString(),
             model: "gemini/openrouter",
           })
@@ -396,6 +464,27 @@ export const prReviewWorkflow = inngest.createFunction(
           mdBody += `### ✅ Resolved from Previous Review (${resolvedIssuesList.length})\n`;
           for (const i of resolvedIssuesList) {
             mdBody += `- ~~${i.title}~~ (${i.filePath ?? "PR-wide"})\n`;
+          }
+          mdBody += "\n";
+        }
+
+        const canonicalCriteria = await ensureStructuredCriteria(prd);
+        const verdicts = reviewResult.criteriaVerdicts ?? [];
+        if (canonicalCriteria.length > 0 && verdicts.length > 0) {
+          const metCount = verdicts.filter((v) => v.verdict === "met").length;
+          mdBody += `### 📋 Requirement Coverage (${metCount}/${canonicalCriteria.length})\n`;
+          for (const ac of canonicalCriteria) {
+            const v = verdicts.find((x) => x.criterionId === ac.id) ?? {
+              verdict: "not_met",
+              evidence: "Not implemented in this diff.",
+            };
+            if (v.verdict === "met") {
+              mdBody += `- [x] ${ac.id}: ${ac.text} — \`${v.evidence}\`\n`;
+            } else if (v.verdict === "partial") {
+              mdBody += `- [ ] ⚠️ ${ac.id}: ${ac.text} (partial) — \`${v.evidence}\`\n`;
+            } else {
+              mdBody += `- [ ] ${ac.id}: ${ac.text} — \`${v.evidence}\`\n`;
+            }
           }
           mdBody += "\n";
         }
