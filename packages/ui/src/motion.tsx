@@ -156,7 +156,7 @@ export function SlideOver({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15, ease: "linear" }}
-            className="slide-over-overlay" style={{ zIndex: 9998 }}
+            className="slide-over-overlay" style={{ zIndex: "var(--z-modal-bg)" }}
             onClick={onClose}
             aria-hidden="true"
           />
@@ -177,7 +177,7 @@ export function SlideOver({
               duration: shouldReduceMotion ? 0 : undefined,
             }}
             className="slide-over-panel"
-            style={{ outline: "none", right: side === "right" ? 0 : "auto", left: side === "left" ? 0 : "auto", zIndex: 9999 }}
+            style={{ outline: "none", right: side === "right" ? 0 : "auto", left: side === "left" ? 0 : "auto", zIndex: "var(--z-modal)" }}
           >
             {children}
           </motion.div>
