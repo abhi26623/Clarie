@@ -52,12 +52,12 @@ export async function getWorkspaceExistingFeaturesContext(organizationId: string
     inArray(featureRequests.status, [...ACTIVE_TRIAGE_STATUSES] as any)
   ))
   .orderBy(desc(featureRequests.createdAt))
-  .limit(15);
+  .limit(5);
 
   if (existingReqs.length === 0) return "";
 
   return `\n\nExisting workspace features:\n` + existingReqs.map(r => {
-    const snippet = r.body && r.body.length > 200 ? r.body.slice(0, 200) + "..." : r.body || "(no description)";
+    const snippet = r.body && r.body.length > 100 ? r.body.slice(0, 100) + "..." : r.body || "(no description)";
     return `- #${r.id}: "${r.title}" (status: ${r.status})\n  Summary: ${snippet}`;
   }).join("\n");
 }
@@ -164,9 +164,11 @@ export const intakeWorkflow = inngest.createFunction(
         .set({ status: "analyzing" })
         .where(and(eq(featureRequests.id, id), notInArray(featureRequests.status, ["analyzing", "prd_generating", ...POST_TRIAGE_PHASES] as any)));
 
-      const existingContext = await getWorkspaceExistingFeaturesContext(req.organizationId, id);
 
       const result = await step.run("triage-decision", async () => {
+        // Fetch context inside the step so it is memoized on Inngest replays
+        // and never re-executed unnecessarily.
+        const existingContext = await getWorkspaceExistingFeaturesContext(req.organizationId, id);
         return await generateObjectResilient({
           schema: decisionSchema,
           system: TRIAGE_SYSTEM_PROMPT,
