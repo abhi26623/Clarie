@@ -30,6 +30,7 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
   { 
     id: "feature-clarification-answered", 
     idempotency: "event.data.clarificationThreadId",
+    retries: 0,
     timeouts: { finish: "4m" },
     onFailure: async ({ event }) => {
       const reqId = event.data.event.data.featureRequestId as number;
@@ -72,7 +73,7 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
           schema: decisionSchema,
           system: TRIAGE_SYSTEM_PROMPT,
           prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\n\nClarification context:\n${context}${existingContext}\n\nClassify and decide how to handle it.`,
-          modelPurpose: "default",
+          modelPurpose: "light",
           maxAttempts: 1,
           timeoutMs: 55_000,
         });
@@ -145,7 +146,7 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
           schema: prdSchema,
           system: "You are a senior product manager. Write a thorough PRD from the feature request and clarification context below. Generate acceptanceCriteria as an array of objects with a short unique slug id (e.g. 'auth-redirect', 'rate-limit-header') and a text field. Never use bare numbers as ids.",
           prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\n\nClarification:\n${context}\n\nGenerate a complete PRD. Generate 3-5 goals, 3-6 acceptance criteria, and 2-4 edge cases to keep the PRD rich but focused.`,
-          modelPurpose: "default",
+          modelPurpose: "light",
           maxAttempts: 1,
           timeoutMs: 55_000,
         });

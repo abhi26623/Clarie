@@ -141,7 +141,7 @@ const prdSchema = z.object({
 export const intakeWorkflow = inngest.createFunction(
   {
     id: "feature-intake",
-    retries: 2,
+    retries: 0,
     timeouts: { finish: "4m" },
     onFailure: async ({ event }) => {
       // Reconcile on failure
@@ -257,7 +257,7 @@ export const intakeWorkflow = inngest.createFunction(
           schema: prdSchema,
           system: "You are a senior product manager. Write a thorough PRD from the feature request below. Generate acceptanceCriteria as an array of objects with a short unique slug id (e.g. 'auth-redirect', 'rate-limit-header') and a text field. Never use bare numbers as ids.",
           prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\nAI reasoning: "${result.reasoning}"\n\nGenerate a complete PRD. Generate 3-5 goals, 3-6 acceptance criteria, and 2-4 edge cases to keep the PRD rich but focused.`,
-          modelPurpose: "default",
+          modelPurpose: "light",
           maxAttempts: 1,
           timeoutMs: 55_000,
         });
