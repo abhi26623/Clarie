@@ -100,6 +100,16 @@
   --status-generating-fg:  oklch(0.30 0.14 295);
   --status-generating-border: oklch(0.70 0.10 295);
 
+  /* kanban columns (<= 8% fill bg, visible fg for thin accent lines) */
+  --kanban-todo-bg:        var(--status-neutral-bg);
+  --kanban-todo-fg:        var(--ink-secondary);
+  --kanban-inprogress-bg:  oklch(0.95 0.05 70);   /* muted amber/ochre */
+  --kanban-inprogress-fg:  oklch(0.50 0.12 70);
+  --kanban-inreview-bg:    oklch(0.96 0.03 295);  /* muted violet */
+  --kanban-inreview-fg:    oklch(0.50 0.10 295);
+  --kanban-done-bg:        var(--green-100);      /* muted forest green */
+  --kanban-done-fg:        var(--green-700);
+
   /* --------------------------------------------------------------------------
      3. Typography
      Serif display: Playfair Display (editorial weight for headings)
@@ -970,7 +980,7 @@ label {
 
 .kanban-card:hover {
   border-color: var(--border-strong);
-  transform: translateY(-2px);
+  /* no transform, no shadow bloom per design requirements */
 }
 
 .kanban-card:active {
@@ -1051,8 +1061,7 @@ label {
 
 .kanban-card:hover .kanban-card__action,
 .kanban-card:focus-within .kanban-card__action {
-  opacity: 1;
-  pointer-events: auto;
+  /* removed to avoid conflict with the new React hover state approach */
 }
 
 .kanban-card--ai {

@@ -22,9 +22,10 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Clock, Copy, Check, User, Bot, UserPlus } from "lucide-react";
+import { Clock, Copy, Check, User, Bot, UserPlus, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import { SkeletonCard } from "./skeleton";
+import { motion, AnimatePresence } from "framer-motion";
 
 export interface TaskItem {
   id: number;
@@ -61,11 +62,11 @@ const COLUMNS: { id: TaskItem["status"]; title: string }[] = [
 
 function getColumnTier(status: TaskItem["status"]) {
   switch (status) {
-    case "todo": return { bg: "var(--status-neutral-border)", pulse: false };
-    case "in_progress": return { bg: "var(--status-active-fg)", pulse: true };
-    case "in_review": return { bg: "var(--status-info-fg)", pulse: false };
-    case "done": return { bg: "var(--status-success-fg)", pulse: false };
-    default: return { bg: "var(--status-neutral-border)", pulse: false };
+    case "todo": return { bg: "var(--kanban-todo-bg)", fg: "var(--kanban-todo-fg)", pulse: false };
+    case "in_progress": return { bg: "var(--kanban-inprogress-bg)", fg: "var(--kanban-inprogress-fg)", pulse: true };
+    case "in_review": return { bg: "var(--kanban-inreview-bg)", fg: "var(--kanban-inreview-fg)", pulse: false };
+    case "done": return { bg: "var(--kanban-done-bg)", fg: "var(--kanban-done-fg)", pulse: false };
+    default: return { bg: "var(--status-neutral-bg)", fg: "var(--status-neutral-fg)", pulse: false };
   }
 }
 
@@ -103,11 +104,16 @@ function TaskCard({
     transition,
   };
 
+  const [copied, setCopied] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
   const handleCopyBranch = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
     if (!task.suggestedBranch) return;
     navigator.clipboard.writeText(task.suggestedBranch);
-    toast.success("Copied branch name to clipboard");
+    setCopied(true);
+    toast.success("Branch copied");
+    setTimeout(() => setCopied(false), 1500);
   };
 
   return (
@@ -116,118 +122,150 @@ function TaskCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={`kanban-card ${isDragging ? "kanban-card--dragging" : ""} ${
+      className={`kanban-card group relative ${isDragging ? "kanban-card--dragging" : ""} ${
         task.assignedToAI ? "kanban-card--ai" : ""
       }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      tabIndex={0}
     >
+      {/* Top right copy icon */}
+      {task.suggestedBranch && (
+        <button
+          type="button"
+          onClick={handleCopyBranch}
+          className="absolute top-2 right-2 p-1 text-ink-tertiary opacity-60 hover:opacity-100 hover:text-ink transition-opacity z-10 rounded hover:bg-surface-overlay focus:opacity-100"
+          title={copied ? "Copied!" : "Copy branch"}
+        >
+          {copied ? <Check size={14} className="text-status-success-fg" /> : <GitBranch size={14} />}
+        </button>
+      )}
+
       {/* Header: Title */}
       <div className="kanban-card__header pr-8">
         <span className="kanban-card__title">{task.title}</span>
       </div>
 
-      {/* Description */}
-      {task.description && <p className="kanban-card__desc">{task.description}</p>}
-
       {/* Footer: Meta Row & Assignee */}
-      <div className="kanban-card__footer" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+      <div className="kanban-card__footer mt-1" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {task.type && (
+            <span className="badge badge--neutral flex-shrink-0">{task.type}</span>
+          )}
           {task.priority && (
             <span
-              className="w-2 h-2 rounded-full flex-shrink-0"
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: getPriorityColor(task.priority) }}
               title={`Priority: ${task.priority}`}
             />
           )}
-          {task.id != null && (
-            <span className="font-mono text-xs text-ink-tertiary flex-shrink-0">
-              #{task.id}
-            </span>
-          )}
-          {task.type && (
-            <span className="badge badge--neutral flex-shrink-0">{task.type}</span>
-          )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
           {task.estimatedHours != null && (
-            <div className="flex items-center gap-1 text-xs text-ink-tertiary font-mono flex-shrink-0">
+            <div className="flex items-center gap-1 text-xs text-ink-tertiary font-mono">
               <Clock size={12} />
               <span>{task.estimatedHours}h</span>
             </div>
           )}
+          
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <button className="btn btn-ghost px-2 py-1 h-auto text-xs text-ink-secondary hover:text-ink flex items-center gap-1.5 border border-transparent hover:border-border rounded">
+                {task.assignedToAI ? (
+                  <>
+                    <span className="badge__dot badge__dot--pulse text-status-info-fg" />
+                    <span className="font-mono text-xs hidden sm:inline">AI Agent</span>
+                  </>
+                ) : task.assigneeId ? (
+                  <>
+                    <User size={13} className="text-ink-tertiary" />
+                    <span className="truncate max-w-[100px] hidden sm:inline">
+                      {task.assignee?.name || task.assignee?.email?.split('@')[0] || "Member"}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={13} className="text-ink-tertiary" />
+                  </>
+                )}
+              </button>
+            </DropdownMenu.Trigger>
+
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content className="kanban-popover-content" sideOffset={4}>
+                <DropdownMenu.Item
+                  className="kanban-popover-item"
+                  onSelect={() => onAssign(task.id, null, true)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Bot size={14} className="text-status-info-fg" />
+                    <span>AI Agent</span>
+                  </div>
+                  {task.assignedToAI && <Check size={14} className="text-accent" />}
+                </DropdownMenu.Item>
+
+                <DropdownMenu.Separator className="h-px bg-border-subtle my-1" />
+
+                {members?.map((m) => {
+                  const isSelected = task.assigneeId === m.userId && !task.assignedToAI;
+                  return (
+                    <DropdownMenu.Item
+                      key={m.userId}
+                      className="kanban-popover-item"
+                      onSelect={() => onAssign(task.id, m.userId, false)}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <User size={14} className="text-ink-tertiary flex-shrink-0" />
+                        <span className="truncate">{m.user?.name || m.user?.email || m.userId}</span>
+                      </div>
+                      {isSelected && <Check size={14} className="text-accent flex-shrink-0" />}
+                    </DropdownMenu.Item>
+                  );
+                })}
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         </div>
-
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild>
-            <button className="btn btn-ghost px-2 py-1 h-auto text-xs text-ink-secondary hover:text-ink flex items-center gap-1.5 border border-transparent hover:border-border rounded">
-              {task.assignedToAI ? (
-                <>
-                  <span className="badge__dot badge__dot--pulse text-status-info-fg" />
-                  <span className="font-mono text-xs">AI Agent: working...</span>
-                </>
-              ) : task.assigneeId ? (
-                <>
-                  <User size={13} className="text-ink-tertiary" />
-                  <span className="truncate max-w-[120px]">
-                    {task.assignee?.name || task.assignee?.email || "Member"}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <UserPlus size={13} className="text-ink-tertiary" />
-                  <span>Assign</span>
-                </>
-              )}
-            </button>
-          </DropdownMenu.Trigger>
-
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content className="kanban-popover-content" sideOffset={4}>
-              <DropdownMenu.Item
-                className="kanban-popover-item"
-                onSelect={() => onAssign(task.id, null, true)}
-              >
-                <div className="flex items-center gap-2">
-                  <Bot size={14} className="text-status-info-fg" />
-                  <span>AI Agent</span>
-                </div>
-                {task.assignedToAI && <Check size={14} className="text-accent" />}
-              </DropdownMenu.Item>
-
-              <DropdownMenu.Separator className="h-px bg-border-subtle my-1" />
-
-              {members?.map((m) => {
-                const isSelected = task.assigneeId === m.userId && !task.assignedToAI;
-                return (
-                  <DropdownMenu.Item
-                    key={m.userId}
-                    className="kanban-popover-item"
-                    onSelect={() => onAssign(task.id, m.userId, false)}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <User size={14} className="text-ink-tertiary flex-shrink-0" />
-                      <span className="truncate">{m.user?.name || m.user?.email || m.userId}</span>
-                    </div>
-                    {isSelected && <Check size={14} className="text-accent flex-shrink-0" />}
-                  </DropdownMenu.Item>
-                );
-              })}
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
       </div>
 
-      {/* Hover & Focus-within Action: Copy suggested branch */}
-      {task.suggestedBranch && (
-        <div className="kanban-card__action" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={handleCopyBranch}
-            className="btn btn-ghost px-2 py-1 text-xs text-ink-secondary hover:text-ink flex items-center gap-1 font-mono"
-            title={`Copy branch: ${task.suggestedBranch}`}
+      {/* Hover Popup */}
+      <AnimatePresence>
+        {isHovered && (task.description || task.suggestedBranch) && !isDragging && (
+          <motion.div
+            initial={{ opacity: 0, y: 4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 2, scale: 0.98, transition: { duration: 0.1 } }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="absolute z-tooltip top-full left-0 mt-2 w-72 bg-surface border border-border shadow-md rounded-md p-3 text-sm flex flex-col gap-3 pointer-events-none group-hover:pointer-events-auto focus-within:pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
           >
-            <Copy size={12} />
-            <span>Copy branch</span>
-          </button>
-        </div>
-      )}
+            {task.description && (
+              <p className="text-xs text-ink-secondary leading-relaxed line-clamp-4">
+                {task.description}
+              </p>
+            )}
+            
+            {task.suggestedBranch && (
+              <div className={`flex flex-col gap-1.5 ${task.description ? "border-t border-border-subtle pt-2 mt-1" : ""}`}>
+                <span className="text-[10px] text-ink-tertiary font-medium uppercase tracking-wider">Suggested Branch</span>
+                <div className="flex items-center gap-2 bg-canvas border border-border-subtle rounded px-2 py-1.5">
+                  <code className="text-[11px] text-ink font-mono flex-1 truncate" title={task.suggestedBranch}>{task.suggestedBranch}</code>
+                  <button onClick={handleCopyBranch} className="text-ink-tertiary hover:text-ink pointer-events-auto outline-none focus:ring-1 focus:ring-accent rounded p-0.5">
+                     {copied ? <Check size={12} className="text-status-success-fg" /> : <Copy size={12} />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-ink-tertiary leading-snug">
+                  Create & push this branch in GitHub. Make sure your PR body includes <code className="font-mono text-ink">claire-request-{task.featureRequestId}</code> — Claire auto-links the PR to this task.
+                </p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -397,15 +435,23 @@ export function KanbanBoard({
 
               return (
                 <div key={col.id} id={col.id} className="kanban-column">
-              <div className="kanban-column__header">
+              <div 
+                className="kanban-column__header border-t-2"
+                style={{ borderTopColor: tier.fg, paddingTop: 'calc(var(--space-3) - 2px)' }}
+              >
                 <div className="flex items-center gap-2">
                   <span className="kanban-column__title">{col.title}</span>
-                  <span className="kanban-column__count">{columnTasks.length}</span>
+                  <span 
+                    className="kanban-column__count"
+                    style={{ backgroundColor: tier.bg, color: tier.fg }}
+                  >
+                    {columnTasks.length}
+                  </span>
                 </div>
                 <div className="flex items-center">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${tier.pulse ? "badge__dot--pulse" : ""}`}
-                    style={{ backgroundColor: tier.bg }}
+                    style={{ backgroundColor: tier.pulse ? tier.fg : "transparent" }}
                   />
                 </div>
               </div>
