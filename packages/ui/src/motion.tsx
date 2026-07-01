@@ -1,4 +1,5 @@
 import * as React from "react";
+import * as ReactDOM from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
 /**
@@ -92,6 +93,10 @@ export function SlideOver({
   const panelRef = React.useRef<HTMLDivElement>(null);
   const triggerRef = React.useRef<HTMLElement | null>(null);
 
+  // SSR-safe portal mount guard — createPortal must not run on the server
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => { setMounted(true); }, []);
+
   // Focus trap
   React.useEffect(() => {
     if (isOpen) {
@@ -121,12 +126,28 @@ export function SlideOver({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Scroll-lock: freeze body scroll while open.
+  // scrollbar-gutter: stable prevents the layout shift when the scrollbar disappears.
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.body.style.scrollbarGutter = "stable";
+    return () => {
+      document.body.style.overflow = prev;
+      document.body.style.scrollbarGutter = "";
+    };
+  }, [isOpen]);
+
   const panelVariants = {
     hidden: { x: shouldReduceMotion ? 0 : side === "right" ? "100%" : "-100%", opacity: 0 },
     visible: { x: 0, opacity: 1 },
   };
 
-  return (
+  // Don't render until client-side — createPortal requires document.body
+  if (!mounted) return null;
+
+  return ReactDOM.createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -162,7 +183,8 @@ export function SlideOver({
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
 
