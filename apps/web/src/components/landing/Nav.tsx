@@ -39,20 +39,8 @@ export function Nav() {
         }}
       >
         {/* Wordmark */}
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
-          <img src="/icon.webp" alt="Claire Logo" style={{ width: 24, height: 24, borderRadius: 6, objectFit: "contain" }} />
-          <span
-            style={{
-              fontFamily: "var(--font-sans)",
-              fontWeight: 600,
-              fontSize: "var(--text-base)",
-              letterSpacing: "-0.01em",
-              color: "var(--ink)",
-              userSelect: "none",
-            }}
-          >
-            Claire
-          </span>
+        <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+          <img src="/icon.webp" alt="Claire Logo" style={{ height: 40, width: "auto", objectFit: "contain" }} />
         </Link>
 
         {/* Center nav links */}
