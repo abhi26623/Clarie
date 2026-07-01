@@ -31,7 +31,7 @@ export function Nav() {
           maxWidth: 1120,
           margin: "0 auto",
           padding: "0 var(--space-6)",
-          height: 56,
+          height: 88,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -40,7 +40,7 @@ export function Nav() {
       >
         {/* Wordmark */}
         <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
-          <img src="/icon.webp" alt="Claire Logo" style={{ height: 40, width: "auto", objectFit: "contain" }} />
+          <img src="/icon.webp" alt="Claire Logo" style={{ height: 72, width: "auto", objectFit: "contain", mixBlendMode: "multiply" }} />
         </Link>
 
         {/* Center nav links */}
