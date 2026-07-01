@@ -36,6 +36,7 @@ The demo workspace ("Claire Demo") is pre-seeded with features spanning every st
 | **Background jobs** | Inngest |
 | **GitHub** | Octokit GitHub App (+ OAuth App for login) |
 | **Payments** | Razorpay (test mode) |
+| **CI / Quality** | GitHub Actions (automated TypeScript typechecking, app build, and unit tests) |
 
 ---
 
@@ -58,11 +59,11 @@ flowchart LR
 apps/
   web/              # Next.js app — UI, tRPC route handler, auth + webhook endpoints
 packages/
-  db/               # Drizzle schema, migrations, Neon client
+  db/               # Drizzle schema, migrations, Neon client, AI credit costs & atomic enforcement
   auth/             # BetterAuth config, org plugin, shared demo-workspace helper
-  api/              # tRPC routers (organization, feature, billing, …)
+  api/              # tRPC routers (organization, feature, billing, approval, review, …)
   ui/               # shared design-system components (@claire/ui)
-  jobs/             # Inngest client + workflow functions
+  jobs/             # Inngest client + workflow functions (with atomic AI credit deduction & per-step timeouts)
   github/           # Octokit GitHub App helpers (listRepos, getPR, postReview)
   ai/               # OpenRouter / Gemini wrapper (generateObjectResilient)
   config/           # Shared env schema
@@ -76,15 +77,15 @@ packages/
 |---|---|
 | `/dashboard` | Pipeline board — all feature requests across every stage, with the "New request" slide-over and keyboard shortcut `N` |
 | `/features` | Full feature request backlog — same pipeline strip + card list as the dashboard, dedicated view |
-| `/requests/[id]` | Feature detail — full timeline, PRD, tasks, clarification threads, PR links, workflow steps |
+| `/requests/[id]` | Feature detail — full timeline, PRD, tasks, clarification threads, approval history timeline, PR links, workflow steps |
 | `/approvals` | Admin-only approval queue — features in `ready_for_approval` with AI review summaries |
-| `/approvals/[id]` | Approval decision page — PRD summary, AI review findings, task completion, Approve & Ship / Send back |
+| `/approvals/[id]` | Approval decision page — PRD summary, AI review findings, task completion, decision history timeline, Approve & Ship / Send back |
 | `/reviews` | AI code review list |
 | `/reviews/[id]` | AI review detail — inline issues, severity breakdown, diff context |
 | `/settings` | Settings hub — links to GitHub integration, team members, and billing |
 | `/settings/github` | GitHub App installation + connected repos |
 | `/settings/members` | Team members list (name, email, role, join date) + invite link generation for admins/owners |
-| `/billing` | Plan status + Razorpay upgrade flow |
+| `/billing` | Plan status, real-time AI credit usage/limits, credit exhaustion alerts, and Razorpay upgrade flow |
 | `/p/[slug]` | Public feature request portal (no login required) |
 | `/p/[slug]/r/[token]` | Public request tracking page (submitter view) |
 | `/join/[token]` | Workspace invite link redemption |
@@ -134,6 +135,7 @@ pnpm i                       # install
 cp .env.example .env         # fill in your values (see table below)
 pnpm db:push                 # push the Drizzle schema to your Neon DB
 pnpm run seed                # seed the "Claire Demo" workspace
+pnpm test                    # run automated unit tests (e.g. AI credit atomic consumption)
 pnpm inngest dev             # start the Inngest dev server (or: npx inngest-cli dev)
 pnpm dev                     # start the app on http://localhost:3000
 ```
@@ -160,6 +162,8 @@ pnpm dev                     # start the app on http://localhost:3000
 | `GITHUB_APP_CLIENT_SECRET` | GitHub App client secret | same |
 | `GITHUB_APP_PRIVATE_KEY` | GitHub App private key (PEM) | generate in the App settings |
 | `GITHUB_APP_WEBHOOK_SECRET` | Verifies incoming GitHub webhooks | you choose it (set in the App) |
+| `GITHUB_APP_SLUG` | GitHub App URL slug | GitHub App settings (default: `claire-ai-app`) |
+| `NEXT_PUBLIC_GITHUB_APP_INSTALL_URL` | Public installation URL | GitHub App settings |
 | `OPENROUTER_API_KEY` | OpenRouter key for AI calls | openrouter.ai |
 | `OPENROUTER_MODEL_LIGHT` | Override light tier model | openrouter.ai (default: `google/gemini-2.5-flash-lite`) |
 | `OPENROUTER_MODEL_DEFAULT` | Override default tier model | openrouter.ai (default: `google/gemini-2.5-flash`) |
@@ -167,6 +171,7 @@ pnpm dev                     # start the app on http://localhost:3000
 | `OPENROUTER_MODEL_PREMIUM_REVIEW` | Override premium review tier model | openrouter.ai (default: `anthropic/claude-sonnet-4.6`) |
 | `INNGEST_SIGNING_KEY` | Inngest signing key (prod) | Inngest dashboard |
 | `INNGEST_EVENT_KEY` | Inngest event key (prod) | Inngest dashboard |
+| `RAZORPAY_WEBHOOK_SECRET` | Verifies incoming Razorpay webhooks | Razorpay dashboard (optional) |
 
 *(All values are placeholders here — no secrets are committed.)*
 
@@ -180,10 +185,11 @@ Key tables (see `packages/db/src/schema.ts`):
 |---|---|
 | `user`, `account`, `session` | BetterAuth identity (email/password + GitHub) |
 | `organization`, `member` | Workspaces and membership/roles |
-| `workspace_settings` | Per-org plan + limits (`plan`, `aiCreditsLimit`, `aiCreditsUsed`, `repoLimit`, `memberLimit`) |
+| `workspace_settings` | Per-org plan + limits (`plan`, `aiCreditsLimit`, `aiCreditsUsed`, `repoLimit`, `memberLimit`, `githubInstallationId`) |
 | `invite_links` | Tokenized join links (`token`, `organizationId`, `expiresAt`) — reusable 7-day tokens consumed by `/join/[token]` |
 | `feature_requests` | Feature requests + their `feature_status` (drives the pipeline) |
 | `workflow_steps` | Polymorphic progress log (`entityType`, `entityId`, `step`, `status`) — written by Inngest functions to record each pipeline step. **Note:** uses a polymorphic `(entityType, entityId: text)` pattern with no typed FK; query directly with `eq(workflowSteps.entityId, String(id))` — do **not** join via Drizzle `with: { workflowSteps }` (will 500). |
+| `clarification_threads` | Clarification questions and user answers (`question`, `questionType`, `options`, `answer`) linked to feature requests |
 | `prds` | Product requirements documents (1:1 with feature) |
 | `tasks` | Engineering tasks broken down from a PRD |
 | `repositories` | Connected GitHub repos + installation tracking |
@@ -191,12 +197,12 @@ Key tables (see `packages/db/src/schema.ts`):
 | `pull_request_files` | Per-file diff data for PR reviews |
 | `ai_reviews` | AI code review results + pass/fail status |
 | `review_issues` | Individual issues from reviews (BLOCKING / NON_BLOCKING / SUGGESTION) |
-| `approvals` | Admin approval decisions on features |
+| `approvals` | Admin approval decisions on features (`decision`, `notes`, `reviewerId`) |
 | `payments` | Razorpay orders/upgrades (idempotent FREE→PRO) |
 | `billing_orders` | Order tracking for billing |
 | `webhook_logs` | Stored GitHub webhook deliveries (enables offline replay in the demo) |
 
-**Plans:** FREE = 500 AI credits / 3 repos / 10 members · PRO = 5 000 / 25 / 50.
+**Plans & AI Credits:** FREE = 500 AI credits / 3 repos / 10 members · PRO = 5 000 / 25 / 50. AI credits are enforced atomically per operation via conditional SQL updates (`triage: 1`, `taskGeneration: 2`, `prdGeneration: 3`, `review: 5`, `reReview: 5`).
 
 ---
 
@@ -232,10 +238,10 @@ Each AI step runs as an Inngest function so long-running work happens off the re
 
 | Function ID | Event(s) | File | What it does |
 |---|---|---|---|
-| `feature-intake` | `feature/intake` | `intake.ts` | Triages a new feature request. **Steps:** `analyze` → classify (proceed / duplicate / feature_exists / clarification_needed / bug_report / out_of_scope) → if proceed: `prd` → generate PRD → set `prd_ready`. |
-| `feature-clarification-answered` | `feature/clarification.answered` | `clarification.ts` | Re-evaluates after a user answers a clarification question. **Steps:** `re-analyze` → re-classify with answer context → if proceed: `prd` → generate PRD → set `prd_ready`. |
-| `prd-approved` | `prd/approved` | `prd.ts` | Generates engineering tasks from an approved PRD. **Steps:** `tasks` → AI breaks PRD into typed/prioritized tasks → insert task rows → set `tasks_ready`. |
-| `github-pr-review` | `github/pr.opened`, `github/pr.synchronize` | `review.ts` | Full AI code review of a pull request. **Steps:** `fetching_context` → load PR + feature + PRD + previous reviews → `fetching_diff` → fetch + budget diff files (≤40 files, ≤80k tokens) → `create_review_row` → `analyzing_code` → AI generates issues → `save_and_diff` → persist + diff resolved issues → `update_feature` → set `fix_needed` or `ready_for_approval` → `posting_github` → post inline review (fallback: plain comment). |
+| `feature-intake` | `feature/intake` | `intake.ts` | Triages a new feature request with strict timeouts (`1x20s` model attempt, `55s` function finish). **Steps:** `analyze` → check for single-word/vague requests (enforcing mandatory multiple-choice clarification) → scan existing workspace backlog for exact semantic matches (`duplicate` / `feature_exists`) → classify → atomically deduct AI credits (`consume-triage`) → if proceed: generate PRD → set `prd_ready`. |
+| `feature-clarification-answered` | `feature/clarification.answered` | `clarification.ts` | Re-evaluates after a user answers a clarification question. **Steps:** `re-analyze` → re-classify with answer context against existing backlog → deduct AI credits → if proceed: generate PRD → set `prd_ready`. |
+| `prd-approved` | `prd/approved` | `prd.ts` | Generates engineering tasks from an approved PRD. **Steps:** `tasks` → deduct AI credits → AI breaks PRD into typed/prioritized tasks → insert task rows → set `tasks_ready`. |
+| `github-pr-review` | `github/pr.opened`, `github/pr.synchronize` | `review.ts` | Full AI code review of a pull request. **Steps:** `fetching_context` → load PR + feature + PRD + previous reviews → `fetching_diff` → fetch + budget diff files (≤40 files, ≤80k tokens) → deduct AI credits → `create_review_row` → `analyzing_code` → AI generates issues → `save_and_diff` → persist + diff resolved issues → `update_feature` → set `fix_needed` or `ready_for_approval` → `posting_github` → post inline review (fallback: plain comment). |
 | `feature-shipped` | `feature/shipped` | `ship.ts` | Records the ship event. **Steps:** compute `timeToShipDays` → set `shipped` → write workflow step. |
 
 Additionally, a `noop` function (`noop/run`) exists in `packages/jobs/src/index.ts` for Inngest dev-server connectivity testing.
@@ -257,8 +263,9 @@ All model calls go through OpenRouter. Model selection is cost-aware, tiered, an
 
 Implemented capabilities:
 
-- **Triage & classification** — surfaces duplicates, existing features, out-of-scope, and bug reports before any work begins.
-- **Clarification** — asks targeted clarifying questions (text, multiple choice, or yes/no) when requirements are ambiguous.
+- **Triage & duplicate detection** — upgraded to `google/gemini-2.5-flash` (`default` tier) with strict 20s timeouts (`1x20s`) and function finish backstops (`55s`). Scans recent workspace features to surface duplicates (`duplicate`), existing features (`feature_exists`), out-of-scope, and bug reports before any work begins.
+- **Mandatory clarification (vagueness-first prompt)** — enforces a strict vagueness check on single-word or underspecified requests before evaluating classification, generating structured multiple-choice (`CHOICE`) or text clarification questions.
+- **Atomic AI credit enforcement** — per-operation credit schedule (`triage: 1`, `taskGeneration: 2`, `prdGeneration: 3`, `review: 5`, `reReview: 5`) with atomic conditional SQL updates preventing race conditions or negative credit balances. When exhausted, records `CREDITS_EXHAUSTED:` sentinel to prompt an upgrade CTA in the UI.
 - **PRD generation** — structured product spec (problem, goals, non-goals, user stories, acceptance criteria, edge cases, success metrics).
 - **Task generation** — PRD → discrete, typed (`FEATURE` / `BUG` / `CHORE` / `TEST` / `DOCS`), prioritized, independently shippable tasks with suggested branch names.
 - **AI code review** — reviews the PR diff against the linked PRD; flags issues with severity (`BLOCKING` / `NON_BLOCKING` / `SUGGESTION`) and type (requirement mismatch, security, performance, missing tests, etc.). Posts inline GitHub review comments with fallback to plain comment.
@@ -278,15 +285,17 @@ One-time **Upgrade to Pro** flow: server-created order → Razorpay Standard Che
 
 1. Sign in as `demo@claire.app` / `demo123456`.
 2. Explore the pre-seeded board across all pipeline stages.
-3. **Submit a new feature** via the "New request" button or `N` shortcut → watch AI triage it live in the slide-over panel.
+3. **Submit a new feature** via the "New request" button or `N` shortcut → watch AI triage it live in the slide-over panel. Test submitting a vague keyword (e.g. `"chart"`) to trigger **mandatory AI clarification questions**, or an existing title to see **semantic duplicate detection**.
 4. **Browse the full backlog** at `/features` — use the pipeline stage tabs to filter by Discovery / Planning / Building / etc.
 5. **Approve a PRD** on a `prd_ready` feature → tasks generate.
-6. **Review an approval** on a `ready_for_approval` feature → inspect PRD summary, AI review findings, and task completion.
-7. **Ship a feature** → confetti 🎉.
-8. **Explore Settings** → navigate to `/settings` for the hub, `/settings/github` to connect repos, `/settings/members` to view the team and generate an invite link.
-9. **Invite a team member** — generate a reusable 7-day link at `/settings/members`, open it in an incognito window, confirm `/join/[token]` adds the member.
-10. **Replay a webhook** to re-run an AI review offline.
-11. **Upgrade to Pro** via Razorpay test checkout.
+6. **Review an approval** on a `ready_for_approval` feature → inspect PRD summary, AI review findings, task completion, and full **approval decision history**.
+7. **Inspect feature timeline** at `/requests/[id]` — view clarification threads, PR diffs, and historical approval audit logs.
+8. **Ship a feature** → confetti 🎉.
+9. **Explore Settings** → navigate to `/settings` for the hub, `/settings/github` to connect repos, `/settings/members` to view the team and generate an invite link.
+10. **Invite a team member** — generate a reusable 7-day link at `/settings/members`, open it in an incognito window, confirm `/join/[token]` adds the member.
+11. **Check AI credit usage** at `/billing` — view real-time credit consumption against your workspace limit.
+12. **Replay a webhook** to re-run an AI review offline.
+13. **Upgrade to Pro** via Razorpay test checkout.
 
 ---
 
