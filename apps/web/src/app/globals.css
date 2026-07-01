@@ -1099,6 +1099,21 @@ label {
 }
 
 /* --------------------------------------------------------------------------
+   HoverCard animations
+   -------------------------------------------------------------------------- */
+.hover-card-content {
+  transform-origin: var(--radix-hover-card-content-transform-origin);
+  animation: hover-card-in 150ms var(--ease-out-expo);
+}
+@keyframes hover-card-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hover-card-content { animation: none; }
+}
+
+/* --------------------------------------------------------------------------
    Approval Panel Grid (Prompt D4)
    -------------------------------------------------------------------------- */
 
