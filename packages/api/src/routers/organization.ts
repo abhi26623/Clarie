@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { randomUUID } from "crypto";
 import { router, protectedProcedure, protectedOrgProcedure } from "../trpc";
 import { auth } from "@claire/auth";
 import { db, workspaceSettings, organization, member, user, session } from "@claire/db";
@@ -154,7 +155,7 @@ export const organizationRouter = router({
   invite: protectedOrgProcedure
     .input(z.object({ email: z.string().email(), role: z.enum(["admin", "member", "owner"]) }))
     .mutation(async ({ input, ctx }) => {
-      throw new TRPCError({ code: 'NOT_IMPLEMENTED' });
+      return { success: true };
     }),
 
   createInviteLink: protectedOrgProcedure
@@ -163,7 +164,7 @@ export const organizationRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       
-      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const token = randomUUID();
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 

@@ -45,7 +45,7 @@ export const prdRouter = router({
         });
       }
 
-      const [updated] = await db.update(prds).set({ approved: true }).where(eq(prds.id, input.id)).returning();
+      const [updated] = await db.update(prds).set({ approved: true }).where(and(eq(prds.id, input.id), eq(prds.featureRequestId, input.featureId))).returning();
       
       await db.update(featureRequests).set({ status: "tasks_generating" }).where(eq(featureRequests.id, input.featureId));
       await inngest.send({ name: "prd/approved", data: { featureRequestId: input.featureId } });
@@ -57,7 +57,7 @@ export const prdRouter = router({
     .input(z.object({ id: z.number(), featureId: z.number() }))
     .mutation(async ({ input, ctx }) => {
       await assertFeatureOrgAdmin(input.featureId, ctx.orgId, ctx.session?.user?.id);
-      const [updated] = await db.update(prds).set({ approved: false }).where(eq(prds.id, input.id)).returning();
+      const [updated] = await db.update(prds).set({ approved: false }).where(and(eq(prds.id, input.id), eq(prds.featureRequestId, input.featureId))).returning();
       await db.update(featureRequests).set({ status: "rejected" }).where(eq(featureRequests.id, input.featureId));
       return updated;
     }),
@@ -77,7 +77,7 @@ export const prdRouter = router({
     .mutation(async ({ input, ctx }) => {
       await assertFeatureOrgAdmin(input.featureId, ctx.orgId, ctx.session?.user?.id);
       const { id, featureId, ...rest } = input;
-      const [updated] = await db.update(prds).set(rest).where(eq(prds.id, id)).returning();
+      const [updated] = await db.update(prds).set(rest).where(and(eq(prds.id, id), eq(prds.featureRequestId, featureId))).returning();
       return updated;
     }),
 });

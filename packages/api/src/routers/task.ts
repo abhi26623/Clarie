@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, protectedOrgProcedure } from "../trpc";
-import { db, featureRequests, tasks } from "@claire/db";
+import { db, featureRequests, tasks, taskStatus } from "@claire/db";
 import { TRPCError } from "@trpc/server";
 import { eq, and } from "drizzle-orm";
 
@@ -18,10 +18,10 @@ export const taskRouter = router({
     }),
 
   updateStatus: protectedOrgProcedure
-    .input(z.object({ id: z.number(), featureId: z.number(), status: z.string() }))
+    .input(z.object({ id: z.number(), featureId: z.number(), status: z.enum(taskStatus.enumValues) }))
     .mutation(async ({ input, ctx }) => {
       await assertFeatureOrg(input.featureId, ctx.orgId);
-      const [updated] = await db.update(tasks).set({ status: input.status as any }).where(eq(tasks.id, input.id)).returning();
+      const [updated] = await db.update(tasks).set({ status: input.status }).where(and(eq(tasks.id, input.id), eq(tasks.featureRequestId, input.featureId))).returning();
       return updated;
     }),
 
@@ -29,7 +29,7 @@ export const taskRouter = router({
     .input(z.object({ id: z.number(), featureId: z.number(), order: z.number() }))
     .mutation(async ({ input, ctx }) => {
       await assertFeatureOrg(input.featureId, ctx.orgId);
-      const [updated] = await db.update(tasks).set({ order: input.order }).where(eq(tasks.id, input.id)).returning();
+      const [updated] = await db.update(tasks).set({ order: input.order }).where(and(eq(tasks.id, input.id), eq(tasks.featureRequestId, input.featureId))).returning();
       return updated;
     }),
 
@@ -37,7 +37,7 @@ export const taskRouter = router({
     .input(z.object({ id: z.number(), featureId: z.number(), assigneeId: z.string().nullable(), assignedToAI: z.boolean().optional() }))
     .mutation(async ({ input, ctx }) => {
       await assertFeatureOrg(input.featureId, ctx.orgId);
-      const [updated] = await db.update(tasks).set({ assigneeId: input.assigneeId, assignedToAI: input.assignedToAI }).where(eq(tasks.id, input.id)).returning();
+      const [updated] = await db.update(tasks).set({ assigneeId: input.assigneeId, assignedToAI: input.assignedToAI }).where(and(eq(tasks.id, input.id), eq(tasks.featureRequestId, input.featureId))).returning();
       return updated;
     }),
 
@@ -46,7 +46,7 @@ export const taskRouter = router({
     .mutation(async ({ input, ctx }) => {
       await assertFeatureOrg(input.featureId, ctx.orgId);
       const { id, featureId, ...rest } = input;
-      const [updated] = await db.update(tasks).set(rest).where(eq(tasks.id, id)).returning();
+      const [updated] = await db.update(tasks).set(rest).where(and(eq(tasks.id, id), eq(tasks.featureRequestId, featureId))).returning();
       return updated;
     }),
 });

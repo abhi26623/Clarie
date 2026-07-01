@@ -11,7 +11,7 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
-  trustHost: true,
+  trustHost: process.env.NODE_ENV === "development",
   emailAndPassword: { enabled: true },
   account: {
     accountLinking: {
@@ -31,7 +31,7 @@ export const auth = betterAuth({
       }),
     },
   },
-  trustedOrigins: process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL, process.env.NEXT_PUBLIC_APP_URL || ""] : ["http://localhost:3000"],
+  trustedOrigins: process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL, process.env.NEXT_PUBLIC_APP_URL || ""].filter(Boolean) : ["http://localhost:3000"],
   plugins: [organization()],
 });
 

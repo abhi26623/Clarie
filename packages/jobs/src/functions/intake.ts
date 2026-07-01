@@ -74,26 +74,6 @@ export const generatePrdWorkflow = inngest.createFunction(
           });
         });
 
-        await step.run("save-prd", async () => {
-          await db.transaction(async (tx) => {
-            await tx.insert(prds).values({
-              featureRequestId: id,
-              problemStatement: prd.problemStatement,
-              goals: prd.goals,
-              nonGoals: prd.nonGoals,
-              userStories: prd.userStories,
-              acceptanceCriteria: prd.acceptanceCriteria,
-              edgeCases: prd.edgeCases,
-              successMetrics: prd.successMetrics,
-            });
-
-            await tx.update(featureRequests)
-              .set({ status: "prd_ready" })
-              .where(and(eq(featureRequests.id, id), notInArray(featureRequests.status, [...POST_TRIAGE_PHASES] as any)));
-          });
-        });
-
-        // Consume prd-gen credit AFTER successful PRD generation.
         const prdCredit = await step.run("consume-prd", async () => {
           try {
             await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.prdGeneration);
@@ -111,6 +91,25 @@ export const generatePrdWorkflow = inngest.createFunction(
           await writeStep(ctx, "failed", "failed", { label: "Credits exhausted" });
           return;
         }
+
+        await step.run("save-prd", async () => {
+          await db.transaction(async (tx) => {
+            await tx.insert(prds).values({
+              featureRequestId: id,
+              problemStatement: prd.problemStatement,
+              goals: prd.goals,
+              nonGoals: prd.nonGoals,
+              userStories: prd.userStories,
+              acceptanceCriteria: prd.acceptanceCriteria,
+              edgeCases: prd.edgeCases,
+              successMetrics: prd.successMetrics,
+            });
+
+            await tx.update(featureRequests)
+              .set({ status: "prd_ready" })
+              .where(and(eq(featureRequests.id, id), notInArray(featureRequests.status, [...POST_TRIAGE_PHASES])));
+          });
+        });
 
         await writeStep(ctx, "prd", "done", { label: "PRD ready for review" });
       });

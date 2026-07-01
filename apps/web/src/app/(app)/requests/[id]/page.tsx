@@ -798,7 +798,7 @@ export default function FeatureDetailPage() {
               isLoading={isLoadingTasks}
               members={activeOrg?.members as any}
               onTaskStatusChange={async (taskId, newStatus) => {
-                await updateTaskStatusMutation.mutateAsync({ id: taskId, featureId: id, status: newStatus });
+                await updateTaskStatusMutation.mutateAsync({ id: taskId, featureId: id, status: newStatus as any });
               }}
               onTaskOrderChange={async (reorderedTasks) => {
                 try {

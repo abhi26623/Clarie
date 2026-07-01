@@ -53,44 +53,33 @@ export async function upsertPullRequestFromWebhook(
     pr.state === "open" ? "open" : pr.merged ? "merged" : "closed";
 
   // Upsert pull request row
-  const [existing] = await db
-    .select()
-    .from(pullRequests)
-    .where(and(eq(pullRequests.repositoryId, repo.id), eq(pullRequests.githubPrNumber, pr.number)));
-
-  let pullRequestId: number;
-  if (existing) {
-    const [updated] = await db
-      .update(pullRequests)
-      .set({
+  const [upserted] = await db
+    .insert(pullRequests)
+    .values({
+      repositoryId: repo.id,
+      githubPrNumber: pr.number,
+      title: pr.title,
+      body: pr.body ?? "",
+      state: prState,
+      authorLogin: pr.user?.login ?? "unknown",
+      sourceBranch: pr.head?.ref,
+      targetBranch: pr.base?.ref,
+      githubUrl: pr.html_url,
+      lastCommitSha: pr.head?.sha,
+      featureRequestId,
+    })
+    .onConflictDoUpdate({
+      target: [pullRequests.repositoryId, pullRequests.githubPrNumber],
+      set: {
         title: pr.title,
         body: pr.body ?? "",
         state: prState,
         lastCommitSha: pr.head?.sha,
         ...(featureRequestId ? { featureRequestId } : {}),
-      })
-      .where(eq(pullRequests.id, existing.id))
-      .returning();
-    pullRequestId = updated.id;
-  } else {
-    const [created] = await db
-      .insert(pullRequests)
-      .values({
-        repositoryId: repo.id,
-        githubPrNumber: pr.number,
-        title: pr.title,
-        body: pr.body ?? "",
-        state: prState,
-        authorLogin: pr.user?.login ?? "unknown",
-        sourceBranch: pr.head?.ref,
-        targetBranch: pr.base?.ref,
-        githubUrl: pr.html_url,
-        lastCommitSha: pr.head?.sha,
-        featureRequestId,
-      })
-      .returning();
-    pullRequestId = created.id;
-  }
+      },
+    })
+    .returning();
+  let pullRequestId: number = upserted.id;
 
   return {
     pullRequestId,

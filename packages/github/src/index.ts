@@ -3,6 +3,9 @@ import { Octokit } from "octokit";
 import { env } from "@claire/config/env";
 
 // Normalize private key to handle escaped newlines in environment variables
+if (!env.GITHUB_APP_PRIVATE_KEY) {
+  throw new Error("GITHUB_APP_PRIVATE_KEY is not configured.");
+}
 const privateKey = env.GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, "\n");
 
 export const githubApp = new App({

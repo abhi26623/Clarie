@@ -1,24 +1,47 @@
 import { z } from "zod";
 import { router, publicProcedure, protectedOrgProcedure } from "../trpc";
-import { db, workflowSteps, webhookLogs, repositories, pullRequests } from "@claire/db";
+import { db, workflowSteps, webhookLogs, repositories, pullRequests, featureRequests } from "@claire/db";
 import { TRPCError } from "@trpc/server";
 import { eq, and, desc } from "drizzle-orm";
 import { inngest } from "@claire/jobs";
 import { upsertPullRequestFromWebhook } from "../lib/pr-ingest";
 
 export const workflowRouter = router({
-  getSteps: publicProcedure
+  getSteps: protectedOrgProcedure
     .input(z.object({ entityType: z.string(), entityId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      if (input.entityType === "feature_request") {
+        const [f] = await db.select({ id: featureRequests.id })
+          .from(featureRequests)
+          .where(and(eq(featureRequests.id, Number(input.entityId)),
+                     eq(featureRequests.organizationId, ctx.orgId)));
+        if (!f) throw new TRPCError({ code: "NOT_FOUND" });
+      } else if (input.entityType === "pull_request") {
+        const [pr] = await db.select({ repositoryId: pullRequests.repositoryId })
+          .from(pullRequests).where(eq(pullRequests.id, Number(input.entityId)));
+        if (!pr) throw new TRPCError({ code: "NOT_FOUND" });
+        const [repo] = await db.select({ id: repositories.id })
+          .from(repositories)
+          .where(and(eq(repositories.id, pr.repositoryId),
+                     eq(repositories.organizationId, ctx.orgId)));
+        if (!repo) throw new TRPCError({ code: "NOT_FOUND" });
+      }
+      return db.select().from(workflowSteps)
+        .where(and(eq(workflowSteps.entityType, input.entityType),
+                   eq(workflowSteps.entityId, input.entityId)))
+        .orderBy(desc(workflowSteps.createdAt));
+    }),
+
+  getStepsByToken: publicProcedure
+    .input(z.object({ trackingToken: z.string().min(1) }))
     .query(async ({ input }) => {
-      return db
-        .select()
-        .from(workflowSteps)
-        .where(
-          and(
-            eq(workflowSteps.entityType, input.entityType),
-            eq(workflowSteps.entityId, input.entityId),
-          ),
-        )
+      const [feature] = await db.select({ id: featureRequests.id })
+        .from(featureRequests)
+        .where(eq(featureRequests.trackingToken, input.trackingToken));
+      if (!feature) return [];
+      return db.select().from(workflowSteps)
+        .where(and(eq(workflowSteps.entityType, "feature_request"),
+                   eq(workflowSteps.entityId, String(feature.id))))
         .orderBy(desc(workflowSteps.createdAt));
     }),
 
@@ -72,7 +95,7 @@ export const workflowRouter = router({
     .input(z.object({ webhookLogId: z.number() }))
     .mutation(async ({ input, ctx }) => {
       // 1. Admin-only guard — checked against org membership role, same source as ctx
-      if (ctx.memberRole !== "admin") {
+      if (ctx.memberRole !== "admin" && ctx.memberRole !== "owner") {
         throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
       }
 

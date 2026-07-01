@@ -19,7 +19,7 @@ export const DEMO_USER_NAME = "Demo User";
 export const DEMO_ORG_ID = "seed-org-demo";
 export const DEMO_USER_ID = "seed-user-demo";
 export const DEMO_MEMBER_ID = "seed-member-demo";
-export const DEMO_WORKSPACE_SETTINGS_ID = 1; // Wait, workspaceSettings uses serial ID? Yes, it's serial. 
+ 
 // For idempotency, we rely on organizationId unique constraint for workspaceSettings.
 
 export async function ensureDemoWorkspace() {

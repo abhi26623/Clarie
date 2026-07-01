@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { router, publicProcedure, protectedOrgProcedure } from "../trpc";
-import { db, featureRequests, clarificationThreads, workspaceSettings, workflowSteps, member, AI_CREDIT_COSTS, getRemainingCredits, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL } from "@claire/db";
+import { db, featureRequests, clarificationThreads, workspaceSettings, workflowSteps, member, AI_CREDIT_COSTS, getRemainingCredits, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL, featureStatus } from "@claire/db";
 import { TRPCError } from "@trpc/server";
 import { eq, and, desc, isNull, or, inArray, lt, notInArray } from "drizzle-orm";
 import { inngest } from "@claire/jobs";
 import { ensureActiveOrganization } from "@claire/auth";
+import { DEMO_EMAIL, DEMO_ORG_ID } from "@claire/auth/demo";
 import { generateObjectResilient } from "@claire/ai";
 import { POST_TRIAGE_PHASES, getWorkspaceExistingFeaturesContext, TRIAGE_SYSTEM_PROMPT, decisionSchema } from "../lib/triage";
 
@@ -55,6 +56,16 @@ export const featureRouter = router({
         if (targetOrgId) {
           source = "dashboard";
           canViewDashboard = true;
+        }
+
+        if (ctx.session?.user?.email === DEMO_EMAIL) {
+          const check = await ensureActiveOrganization(ctx.session.user.id, ctx.session.session.id);
+          if (check?.orgId !== DEMO_ORG_ID) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Demo account is restricted to the demo workspace.",
+            });
+          }
         }
       }
 
@@ -221,6 +232,8 @@ export const featureRouter = router({
             .then(r => r[0] ?? null)
         : null;
 
+      const safeOptions = Array.isArray(thread?.options) ? thread.options : null;
+
       return {
         id: req.id,
         title: req.title,
@@ -233,7 +246,7 @@ export const featureRouter = router({
         clarificationThreadId: thread?.id ?? null,
         clarificationQuestion: thread?.question ?? null,
         clarificationQuestionType: thread?.questionType ?? null,
-        clarificationOptions: (thread?.options as string[] | null) ?? null,
+        clarificationOptions: safeOptions ?? null,
       };
     }),
 
@@ -288,7 +301,7 @@ export const featureRouter = router({
     }),
 
   updateStatus: protectedOrgProcedure
-    .input(z.object({ id: z.number(), status: z.string() }))
+    .input(z.object({ id: z.number(), status: z.enum(featureStatus.enumValues) }))
     .mutation(async ({ input, ctx }) => {
       if (!ctx.session?.user) throw new TRPCError({ code: "UNAUTHORIZED" });
       const [m] = await db.select().from(member).where(and(eq(member.organizationId, ctx.orgId), eq(member.userId, ctx.session.user.id)));
@@ -296,7 +309,7 @@ export const featureRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "Only admins or owners can perform this action" });
       }
       const [updated] = await db.update(featureRequests)
-        .set({ status: input.status as any })
+        .set({ status: input.status })
         .where(and(eq(featureRequests.id, input.id), eq(featureRequests.organizationId, ctx.orgId)))
         .returning();
       if (!updated) throw new TRPCError({ code: "NOT_FOUND" });
@@ -313,7 +326,7 @@ export const featureRouter = router({
 
       const [updated] = await db.update(clarificationThreads)
         .set({ answer: input.answer, answeredAt: new Date().toISOString() })
-        .where(eq(clarificationThreads.id, input.threadId))
+        .where(and(eq(clarificationThreads.id, input.threadId), eq(clarificationThreads.featureRequestId, input.featureId)))
         .returning();
 
       if (!updated) throw new TRPCError({ code: "NOT_FOUND" });

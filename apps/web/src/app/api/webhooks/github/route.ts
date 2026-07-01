@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { db, webhookLogs, repositories } from "@claire/db";
 import { inngest } from "@claire/jobs";
 import { env } from "@claire/config/env";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { upsertPullRequestFromWebhook } from "@claire/api";
 
 
@@ -13,6 +13,9 @@ export async function POST(req: NextRequest) {
   const event = req.headers.get("x-github-event") ?? "unknown";
 
   // Compute HMAC-SHA256 signature
+  if (!env.GITHUB_APP_WEBHOOK_SECRET) {
+    return new Response("Webhook secret not configured", { status: 500 });
+  }
   const hmac = crypto.createHmac("sha256", env.GITHUB_APP_WEBHOOK_SECRET);
   hmac.update(rawBody);
   const expectedSignature = `sha256=${hmac.digest("hex")}`;
@@ -74,7 +77,8 @@ export async function POST(req: NextRequest) {
         for (const repo of payload.repositories) {
           await db.update(repositories)
             .set({ installationId, webhookActive: true })
-            .where(eq(repositories.githubId, repo.id));
+            .where(and(eq(repositories.githubId, repo.id),
+                       eq(repositories.installationId, installationId)));
         }
       }
       return NextResponse.json({ received: true, action: "installation.created" }, { status: 200 });
@@ -86,14 +90,16 @@ export async function POST(req: NextRequest) {
         for (const repo of payload.repositories_added) {
           await db.update(repositories)
             .set({ installationId, webhookActive: true })
-            .where(eq(repositories.githubId, repo.id));
+            .where(and(eq(repositories.githubId, repo.id),
+                       eq(repositories.installationId, installationId)));
         }
       }
       if (payload.repositories_removed && Array.isArray(payload.repositories_removed)) {
         for (const repo of payload.repositories_removed) {
           await db.update(repositories)
             .set({ installationId: null, webhookActive: false })
-            .where(eq(repositories.githubId, repo.id));
+            .where(and(eq(repositories.githubId, repo.id),
+                       eq(repositories.installationId, installationId)));
         }
       }
       return NextResponse.json({ received: true, action: "installation_repositories" }, { status: 200 });

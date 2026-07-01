@@ -64,10 +64,10 @@ function PortalContent({ slug }: { slug: string }) {
     }
   );
 
-  const { data: stepsData } = trpc.workflow.getSteps.useQuery(
-    { entityType: "feature_request", entityId: String(requestId) },
+  const { data: stepsData } = trpc.workflow.getStepsByToken.useQuery(
+    { trackingToken: trackingToken ?? "" },
     { 
-      enabled: requestId !== null, 
+      enabled: !!trackingToken, 
       refetchInterval: () => {
         if (!publicTracking) return 1200;
         if (TERMINAL.includes(publicTracking.status)) return false;

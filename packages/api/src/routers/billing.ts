@@ -8,7 +8,15 @@ import crypto from "crypto";
 export const billingRouter = router({
   getUsage: protectedOrgProcedure
     .query(async ({ ctx }) => {
-      throw new TRPCError({ code: 'NOT_IMPLEMENTED' });
+      const [s] = await db.select().from(workspaceSettings)
+        .where(eq(workspaceSettings.organizationId, ctx.orgId));
+      return {
+        aiCreditsUsed: s?.aiCreditsUsed ?? 0,
+        aiCreditsLimit: s?.aiCreditsLimit ?? 500,
+        plan: s?.plan ?? "FREE",
+        repoLimit: s?.repoLimit ?? 3,
+        memberLimit: s?.memberLimit ?? 10,
+      };
     }),
 
   createOrder: protectedOrgProcedure
@@ -73,6 +81,10 @@ export const billingRouter = router({
   verifyPayment: protectedOrgProcedure
     .input(z.object({ orderId: z.string(), paymentId: z.string(), signature: z.string() }))
     .mutation(async ({ input, ctx }) => {
+      if (!process.env.RAZORPAY_KEY_SECRET) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Razorpay secret not configured" });
+      }
+
       const [membership] = await db.select().from(member).where(and(eq(member.userId, ctx.session.user.id), eq(member.organizationId, ctx.orgId))).limit(1);
       if (!membership || (membership.role !== "admin" && membership.role !== "owner")) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only owners or admins can upgrade" });
@@ -105,6 +117,15 @@ export const billingRouter = router({
         return { success: true, plan: "PRO" };
       }
 
+      const rzp = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID!,
+        key_secret: process.env.RAZORPAY_KEY_SECRET!,
+      });
+      const paymentCheck = await rzp.payments.fetch(input.paymentId);
+      if (paymentCheck.status !== "captured") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Payment not captured" });
+      }
+
       await db.update(payments)
         .set({ status: "paid", razorpayPaymentId: input.paymentId, paidAt: new Date().toISOString() })
         .where(eq(payments.razorpayOrderId, input.orderId));
@@ -126,6 +147,6 @@ export const billingRouter = router({
 
   getHistory: protectedOrgProcedure
     .query(async ({ ctx }) => {
-      throw new TRPCError({ code: 'NOT_IMPLEMENTED' });
+      return [];
     }),
 });

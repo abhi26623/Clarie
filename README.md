@@ -285,9 +285,21 @@ One-time **Upgrade to Pro** flow: server-created order → Razorpay Standard Che
 
 Claire enforces strict multi-tenant data boundaries and securely quarantines the shared demo experience:
 - **Global Data Isolation:** All API queries and mutations strictly filter by `ctx.orgId` derived from the server session. Cross-tenant reads/writes are impossible.
-- **Systemic Demo Quarantine:** The demo user (`demo@claire.app`) is strictly hardcoded to the demo organization (`DEMO_ORG_ID`). A global tRPC middleware (`protectedOrgProcedure`) guarantees that the demo user gets `FORBIDDEN` if they attempt to interact with any other workspace, preventing cross-tenant contamination.
+- **Webhook Authenticity & Isolation:** GitHub incoming webhooks are strictly guarded by `verifyWebhookSignature` using HMAC SHA-256. All webhook-driven database updates (like repository renames or PR syncs) are strictly scoped by `installationId` and `organizationId` to prevent cross-tenant data corruption.
+- **Systemic Demo Quarantine:** The demo user (`demo@claire.app`) is strictly hardcoded to the demo organization (`DEMO_ORG_ID`). A global tRPC middleware (`protectedOrgProcedure`) guarantees that the demo user gets `FORBIDDEN` if they attempt to interact with any other workspace.
 - **Secure Invites:** Workspace invite links are protected against stale-session attacks. `joinAction` server actions validate the invite token and extract the `organizationId` natively from the server database, never trusting the client closure.
+- **IDOR Prevention:** Public endpoints (like portal polling) use cryptographically secure `trackingToken`s instead of sequential IDs. Authenticated endpoints rigorously verify ownership (e.g., `feature.updateStatus` and `workflow.getSteps` enforce admin/owner roles and workspace matching).
+- **Payment Verification:** Razorpay checkout completions are verified server-side. The API fetches the true payment status directly from the Razorpay backend (`rzp.payments.fetch`) before upgrading a workspace, preventing client-side spoofing.
 - **CSRF Protection:** State-mutating actions (such as demo-logout) are correctly implemented as `POST` endpoints to prevent `<Link>` prefetch side-effects or crawler-induced logouts.
+
+---
+
+## 🛡️ Robustness & Atomicity
+
+- **Atomic AI Credits:** AI credits are enforced atomically per operation via conditional SQL updates (`triage: 1`, `taskGeneration: 2`, `prdGeneration: 3`, `review: 5`).
+- **Consume-Before-Save:** To prevent AI credit leaks during retries, Inngest workflows consume credits inside idempotent `step.run` blocks *before* persisting the generated results to the database.
+- **Idempotency & Duplicate Guards:** Workflows use Inngest's `step.run` memoization to guarantee exactly-once execution. Data ingestion from GitHub (like syncing PRs and repositories) uses partial unique indexes and `onConflictDoUpdate` to seamlessly handle duplicate webhook deliveries without crashing or creating orphan data.
+- **Strict Type Safety:** Zod is used for all runtime boundary parsing (e.g., Inngest event payloads, tRPC inputs). The codebase adheres to strict TypeScript compiler checks without relying on unsafe `any` casts.
 
 ---
 

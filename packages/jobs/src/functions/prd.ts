@@ -31,6 +31,32 @@ export const prdApprovedWorkflow = inngest.createFunction(
       const [prd] = await db.select().from(prds).where(eq(prds.featureRequestId, id));
       if (!prd) throw new Error(`PRD not found for feature request ${id}`);
 
+      // Bug #8: if tasks already exist for this feature, do not regenerate (dedupe on replay/double-click)
+      const existingTasks = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.featureRequestId, id));
+      if (existingTasks.length > 0) {
+        await db.update(featureRequests).set({ status: "tasks_ready" }).where(eq(featureRequests.id, id));
+        await writeStep(ctx, "tasks", "done", { label: `${existingTasks.length} tasks already exist`, count: existingTasks.length });
+        return;
+      }
+
+      // Bug #21/#11: consume BEFORE generating so we never sit stuck in "tasks_generating" with no tasks
+      const taskCredit = await step.run("consume-task-gen", async () => {
+        try {
+          await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.taskGeneration);
+          return { ok: true } as { ok: boolean, msg?: string };
+        } catch (err: any) {
+          if (err instanceof CreditsExhaustedError) return { ok: false, msg: err.message };
+          throw err;
+        }
+      });
+      if (!taskCredit.ok) {
+        await db.update(featureRequests)
+          .set({ status: "prd_ready", aiReasoning: `${CREDITS_EXHAUSTED_SENTINEL}${taskCredit.msg}` })
+          .where(eq(featureRequests.id, id));
+        await writeStep(ctx, "tasks", "failed", { label: "Credits exhausted" });
+        return;
+      }
+
       await writeStep(ctx, "tasks", "running", { label: "Generating engineering tasks" });
       await db.update(featureRequests).set({ status: "tasks_generating" }).where(eq(featureRequests.id, id));
 
@@ -63,28 +89,6 @@ export const prdApprovedWorkflow = inngest.createFunction(
       });
 
       await db.update(featureRequests).set({ status: "tasks_ready" }).where(eq(featureRequests.id, id));
-
-      // Consume task-gen credit AFTER tasks are persisted.
-      // Wrapped in step.run for true Inngest idempotency across retries.
-      const taskCredit = await step.run("consume-task-gen", async () => {
-        try {
-          await consumeAiCredits(req.organizationId, AI_CREDIT_COSTS.taskGeneration);
-          return { ok: true } as { ok: boolean, msg?: string };
-        } catch (err: any) {
-          if (err instanceof CreditsExhaustedError) return { ok: false, msg: err.message };
-          throw err;
-        }
-      });
-
-      if (!taskCredit.ok) {
-        // Leave the featureRequest in "tasks_ready" since the tasks did generate,
-        // but set the AI reasoning so the UI knows credits ran out for this step.
-        await db.update(featureRequests)
-          .set({ aiReasoning: `${CREDITS_EXHAUSTED_SENTINEL}${taskCredit.msg}` })
-          .where(eq(featureRequests.id, id));
-        return;
-      }
-
       await writeStep(ctx, "tasks", "done", { label: `${taskCount} tasks generated`, count: taskCount });
     });
   },

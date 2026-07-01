@@ -8,8 +8,9 @@ import {
   jsonb,
   boolean,
   pgEnum,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { organization, user } from "./auth-schema";
 
 /* ---------- Enums ---------- */
@@ -58,6 +59,11 @@ export const featureRequests = pgTable("feature_requests", {
     foreignColumns: [organization.id],
     name: "feature_requests_organization_id_organization_id_fk",
   }).onDelete("cascade"),
+  linkedFeatureFk: foreignKey({
+    columns: [table.linkedFeatureId],
+    foreignColumns: [table.id],
+    name: "feature_requests_linked_feature_id_fk",
+  }).onDelete("set null"),
 }));
 
 /* ---------- Workflow steps (live progress) ---------- */
@@ -100,7 +106,7 @@ export const clarificationThreads = pgTable("clarification_threads", {
 
 export const prds = pgTable("prds", {
   id: serial("id").primaryKey().notNull(),
-  featureRequestId: integer("feature_request_id").notNull(),
+  featureRequestId: integer("feature_request_id").notNull().unique(),
   problemStatement: text("problem_statement"),
   goals: jsonb("goals"),
   nonGoals: jsonb("non_goals"),
@@ -134,7 +140,7 @@ export const workspaceSettings = pgTable("workspace_settings", {
   memberLimit: integer("member_limit").default(10).notNull(),
   billingStatus: text("billing_status").default("active").notNull(),
   // GitHub App installation — one per org, persisted after completeInstallation
-  githubInstallationId: integer("github_installation_id"),
+  githubInstallationId: integer("github_installation_id").unique(),
   createdAt: timestamp("created_at", { mode: "string" }).defaultNow().notNull(),
 }, (table) => ({
   workspaceSettingsOrgIdOrganizationIdFk: foreignKey({
@@ -190,6 +196,9 @@ export const repositories = pgTable("repositories", {
     foreignColumns: [organization.id],
     name: "repositories_organization_id_organization_id_fk",
   }).onDelete("cascade"),
+  uniqueGithubInstallation: uniqueIndex("unique_github_installation")
+    .on(table.githubId, table.installationId)
+    .where(sql`${table.githubId} IS NOT NULL AND ${table.installationId} IS NOT NULL`),
 }));
 
 /* ---------- Pull requests ---------- */
@@ -219,6 +228,8 @@ export const pullRequests = pgTable("pull_requests", {
     foreignColumns: [featureRequests.id],
     name: "pull_requests_feature_request_id_feature_requests_id_fk",
   }).onDelete("set null"),
+  uniqueRepoPr: uniqueIndex("unique_repo_pr")
+    .on(table.repositoryId, table.githubPrNumber),
 }));
 
 /* ---------- Pull request files ---------- */
@@ -265,6 +276,8 @@ export const aiReviews = pgTable("ai_reviews", {
     foreignColumns: [pullRequests.id],
     name: "ai_reviews_pull_request_id_pull_requests_id_fk",
   }).onDelete("cascade"),
+  uniquePrReviewNumber: uniqueIndex("unique_pr_review_number")
+    .on(table.pullRequestId, table.reviewNumber),
 }));
 
 /* ---------- Review issues ---------- */
@@ -307,7 +320,7 @@ export const approvals = pgTable("approvals", {
     columns: [table.reviewerId],
     foreignColumns: [user.id],
     name: "approvals_reviewer_id_user_id_fk",
-  }).onDelete("cascade"),
+  }).onDelete("restrict"),
 }));
 
 /* ---------- Billing orders ---------- */
@@ -352,7 +365,7 @@ export const payments = pgTable("payments", {
     columns: [table.createdBy],
     foreignColumns: [user.id],
     name: "payments_created_by_user_id_fk",
-  }).onDelete("cascade"),
+  }).onDelete("restrict"),
 }));
 
 /* ---------- Webhook logs (replay safety net) ---------- */
@@ -394,7 +407,6 @@ export const featureRequestsRelations = relations(featureRequests, ({ many, one 
   // ⚠️  workflowSteps uses a polymorphic (entityType, entityId: text) pattern with NO typed FK.
   // Drizzle cannot infer the join — do NOT use `with: { workflowSteps }` in queries; it will 500.
   // Query directly: db.select().from(workflowSteps).where(eq(workflowSteps.entityId, String(id)))
-  workflowSteps: many(workflowSteps),
 
   clarificationThreads: many(clarificationThreads),
   prd: one(prds, { fields: [featureRequests.id], references: [prds.featureRequestId] }),

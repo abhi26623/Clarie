@@ -73,10 +73,10 @@ export const prReviewWorkflow = inngest.createFunction(
   { id: "github-pr-review", concurrency: { limit: 1, key: "event.data.pullRequestId" } },
   [{ event: "github/pr.opened" }, { event: "github/pr.synchronize" }],
   async ({ event, step }) => {
-    const { pullRequestId, installationId } = event.data as {
-      pullRequestId: number;
-      installationId: number;
-    };
+    const { pullRequestId, installationId } = z.object({
+      pullRequestId: z.number(),
+      installationId: z.number(),
+    }).parse(event.data);
 
     // ------------------------------------------------------------------
     // logStep — writes workflow telemetry to:
@@ -226,6 +226,13 @@ export const prReviewWorkflow = inngest.createFunction(
             featureRequestId: pr.featureRequestId ?? null,
             status: "running",
             reviewNumber,
+          })
+          .onConflictDoUpdate({
+            target: [aiReviews.pullRequestId, aiReviews.reviewNumber],
+            set: {
+              status: "running",
+              featureRequestId: pr.featureRequestId ?? null,
+            },
           })
           .returning();
         return inserted.id;

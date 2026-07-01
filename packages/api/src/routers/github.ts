@@ -95,26 +95,22 @@ export const githubRouter = router({
       }
       const installationId = settings.githubInstallationId;
 
-      const [existing] = await db.select().from(repositories)
-        .where(and(eq(repositories.organizationId, ctx.orgId), eq(repositories.fullName, input.fullName)));
-
-      if (existing) {
-        const [updated] = await db.update(repositories)
-          .set({ githubId: input.repoId, installationId, webhookActive: true })
-          .where(eq(repositories.id, existing.id))
-          .returning();
-        return updated;
-      }
-
-      const [created] = await db.insert(repositories).values({
+      const [upserted] = await db.insert(repositories).values({
         organizationId: ctx.orgId,
         githubId: input.repoId,
         installationId,
         fullName: input.fullName,
         name: input.name,
         webhookActive: true,
+      }).onConflictDoUpdate({
+        target: [repositories.githubId, repositories.installationId],
+        set: {
+          fullName: input.fullName,
+          name: input.name,
+          webhookActive: true,
+        },
       }).returning();
-      return created;
+      return upserted;
     }),
 
   disconnectRepo: protectedOrgProcedure
@@ -137,7 +133,11 @@ export const githubRouter = router({
       if (!repo || !repo.installationId) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Repository or installation not found" });
       }
-      const [owner, repoName] = repo.fullName.split("/");
+      const fullName = repo.fullName;
+      if (!fullName || !/^[^/]+\/[^/]+$/.test(fullName)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Invalid repository name: ${fullName}` });
+      }
+      const [owner, repoName] = fullName.split("/");
       const octokit = await getInstallationOctokit(repo.installationId);
       const { data } = await octokit.rest.pulls.list({
         owner,
@@ -198,7 +198,11 @@ export const githubRouter = router({
       if (!repo || !repo.installationId) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Repository or installation not found" });
       }
-      const [owner, repoName] = repo.fullName.split("/");
+      const fullName = repo.fullName;
+      if (!fullName || !/^[^/]+\/[^/]+$/.test(fullName)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Invalid repository name: ${fullName}` });
+      }
+      const [owner, repoName] = fullName.split("/");
       const octokit = await getInstallationOctokit(repo.installationId);
       const { data: prs } = await octokit.rest.pulls.list({
         owner,

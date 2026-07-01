@@ -5,7 +5,7 @@ import { DEMO_EMAIL, DEMO_ORG_ID } from "@claire/auth/demo";
 import type { Session } from "@claire/auth";
 
 export async function createContext(opts: { headers: Headers }) {
-  const session = (await auth.api.getSession({ headers: opts.headers })) as Session | null;
+  const session = await auth.api.getSession({ headers: opts.headers });
   return { session, headers: opts.headers };
 }
 export type Context = Awaited<ReturnType<typeof createContext>>;
