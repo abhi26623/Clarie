@@ -9,7 +9,7 @@ import { ActionCenter } from "./action-center";
 
 export function TopBar() {
   return (
-    <div className="flex flex-col w-full shrink-0 z-[var(--z-sticky)] sticky top-0 bg-canvas">
+    <div className="flex flex-col w-full min-h-14 shrink-0 z-[var(--z-sticky)] sticky top-0 bg-canvas">
       <header className="flex h-14 shrink-0 items-center justify-between px-4 border-b border-subtle">
         <div className="flex items-center gap-4 h-full">
           <MobileNav />

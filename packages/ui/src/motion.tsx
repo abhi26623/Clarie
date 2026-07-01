@@ -92,12 +92,10 @@ export function SlideOver({
   const panelRef = React.useRef<HTMLDivElement>(null);
   const triggerRef = React.useRef<HTMLElement | null>(null);
 
-  // Focus trap + scroll lock
+  // Focus trap
   React.useEffect(() => {
     if (isOpen) {
       triggerRef.current = document.activeElement as HTMLElement;
-      const prevOverflow = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
       
       // Move focus into the panel
       // Wait for animation frame so panel is mounted
@@ -106,7 +104,6 @@ export function SlideOver({
       });
 
       return () => {
-        document.body.style.overflow = prevOverflow;
         triggerRef.current?.focus();
       };
     }
