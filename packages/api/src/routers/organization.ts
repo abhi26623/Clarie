@@ -6,6 +6,7 @@ import type { Auth } from "@claire/auth";
 import { TRPCError } from "@trpc/server";
 import { eq, and, sql } from "drizzle-orm";
 import { featureRequests, repositories, invitation, inviteLinks } from "@claire/db";
+import { DEMO_EMAIL } from "@claire/auth/demo";
 
 const RESERVED_SLUGS = new Set([
   "demo", "claire-demo", "api", "dashboard", "sign-in", "sign-up", "join", 
@@ -26,6 +27,9 @@ export const organizationRouter = router({
   create: protectedProcedure
     .input(z.object({ name: z.string(), slug: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
+      if (ctx.session.user.email === DEMO_EMAIL) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Demo accounts cannot create workspaces." });
+      }
       let baseSlug = input.slug ? slugify(input.slug) : slugify(input.name);
       if (!baseSlug) baseSlug = "org";
       

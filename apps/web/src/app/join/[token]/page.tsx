@@ -1,9 +1,12 @@
 import { db, inviteLinks, member, workspaceSettings, session as sessionTable, organization } from "@claire/db";
 import { auth } from "@claire/auth";
 import type { Auth } from "@claire/auth";
+import { DEMO_EMAIL } from "@claire/auth/demo";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq, sql, and } from "drizzle-orm";
+
+import { DemoLogoutRedirect } from "./DemoLogoutRedirect";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +51,11 @@ export default async function JoinPage({ params }: { params: { token: string } }
     );
   }
 
+  // Auto-logout if demo user to prevent cross-tenant contamination
+  if (session?.user && session.user.email === DEMO_EMAIL) {
+    return <DemoLogoutRedirect returnTo={`/sign-up?returnTo=/join/${token}`} />;
+  }
+
   if (!session?.user) {
     redirect(`/sign-up?returnTo=/join/${token}`);
   }
@@ -88,13 +96,24 @@ export default async function JoinPage({ params }: { params: { token: string } }
   async function joinAction() {
     "use server";
     
-    // Insert membership idempotently
+    const freshSession = await auth.api.getSession({ headers: headers() });
+    if (!freshSession?.user || freshSession.user.email === DEMO_EMAIL) {
+      throw new Error("Unauthorized");
+    }
+    
+    // Server-side re-validation of token to prevent bypass
+    const [freshInvite] = await db.select().from(inviteLinks).where(eq(inviteLinks.token, token));
+    if (!freshInvite || new Date(freshInvite.expiresAt) < new Date()) {
+      throw new Error("Invite is invalid or expired");
+    }
+    
+    // Insert membership idempotently using freshly fetched orgId
     try {
       const memberId = crypto.randomUUID();
       await db.insert(member).values({
         id: memberId,
-        organizationId: invite.organizationId,
-        userId: session!.user.id,
+        organizationId: freshInvite.organizationId,
+        userId: freshSession.user.id,
         role: "member",
         createdAt: new Date(),
       }).onConflictDoNothing(); 
@@ -102,7 +121,7 @@ export default async function JoinPage({ params }: { params: { token: string } }
 
     await (auth as Auth).api.setActiveOrganization({
       headers: headers(),
-      body: { organizationId: invite.organizationId },
+      body: { organizationId: freshInvite.organizationId },
     });
 
     redirect("/dashboard");

@@ -67,3 +67,13 @@ End with: pnpm build passes, zero type errors.
 - **`ready_for_approval` filter is identical to `approval.listPending`** — same table, same where clause. Do not invent a second query definition.
 - **Link ids:** `/requests/[id]` and `/approvals/[id]` take `featureRequests.id`. `/reviews/[id]` takes `aiReviews.id` — do not link needs-fixes items there; link to `/requests/[featureId]` instead.
 - **Role gate:** derive from `ctx.memberRole` (set by `protectedOrgProcedure` via `ensureActiveOrganization`). Do not re-query the `member` table for this.
+
+---
+
+## Auth & Security
+
+- **Demo Isolation:** Anonymous sessions NEVER resolve to demo; demo is explicit opt-in only. Invite accept requires real auth and must explicitly block the demo user via auto-logout to prevent cross-tenant contamination.
+- **Server Action Validation:** Server Actions (e.g., invites) must re-validate tokens/state internally. Never trust the page closure.
+- **Systemic Demo Quarantine:** The demo account is strictly quarantined to `DEMO_ORG_ID` via `protectedOrgProcedure`. It may never mutate or access non-demo orgs.
+- **Non-Org Scoped Mutations:** Any `protectedProcedure` mutations that create or alter org-level data (e.g., `organization.create`) MUST explicitly guard against `DEMO_EMAIL`.
+- **Constants:** Always import `DEMO_EMAIL` and `DEMO_ORG_ID` from `@claire/auth/demo` — do not re-declare them per file.
