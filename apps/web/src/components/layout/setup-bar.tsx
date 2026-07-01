@@ -42,7 +42,7 @@ export function SetupBar() {
 
   return (
     <Reveal>
-      <div className="flex items-center justify-between px-4 py-2 bg-surface-raised border-b border-subtle">
+      <div className="flex shrink-0 items-center justify-between px-4 py-2 bg-surface-raised border-b border-subtle">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-sm font-semibold text-ink-secondary mr-2">
             {completed}/{total} complete —

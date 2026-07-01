@@ -13,6 +13,7 @@ import {
   SkeletonCard,
   StatusBadge,
   KanbanBoard,
+  parseDbTimestamp,
 } from "@claire/ui";
 import {
   Check,
@@ -144,7 +145,7 @@ export default function FeatureDetailPage() {
         id: "discovery",
         label: "Discovery",
         state: discState,
-        meta: feature.createdAt ? new Date(feature.createdAt).toLocaleDateString() : "",
+        meta: feature.createdAt ? parseDbTimestamp(feature.createdAt)?.toLocaleDateString() : "",
         isStatusInFlight: isInFlight && discState === "active",
       },
       {
@@ -201,7 +202,7 @@ export default function FeatureDetailPage() {
   const latestThread = useMemo(() => {
     if (!feature?.clarificationThreads || feature.clarificationThreads.length === 0) return null;
     return [...feature.clarificationThreads].sort(
-      (a, b) => new Date(b.askedAt ?? 0).getTime() - new Date(a.askedAt ?? 0).getTime()
+      (a, b) => (parseDbTimestamp(b.askedAt)?.getTime() ?? 0) - (parseDbTimestamp(a.askedAt)?.getTime() ?? 0)
     )[0];
   }, [feature?.clarificationThreads]);
 
@@ -913,7 +914,7 @@ export default function FeatureDetailPage() {
                 <div className="flex items-center gap-2 text-sm text-ink-secondary">
                   <Clock size={14} className="text-ink-tertiary" />
                   <span>
-                    {feature.createdAt ? new Date(feature.createdAt).toLocaleDateString() : "N/A"}
+                    {feature.createdAt ? parseDbTimestamp(feature.createdAt)?.toLocaleDateString() : "N/A"}
                   </span>
                 </div>
               </div>

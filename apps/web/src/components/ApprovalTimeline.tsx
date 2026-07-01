@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { trpc } from "@/lib/trpc";
-import { StatusBadge, BadgeTier } from "@claire/ui";
+import { StatusBadge, BadgeTier, parseDbTimestamp } from "@claire/ui";
 import {
   ChevronDown,
   ChevronUp,
@@ -160,7 +160,7 @@ export function ApprovalTimeline({ featureId }: { featureId: number }) {
                 >
                   <Clock size={12} />
                   {item.createdAt
-                    ? new Date(item.createdAt).toLocaleDateString(undefined, {
+                    ? parseDbTimestamp(item.createdAt)?.toLocaleDateString(undefined, {
                         month: "short",
                         day: "numeric",
                       })
@@ -196,7 +196,7 @@ export function ApprovalTimeline({ featureId }: { featureId: number }) {
                         : item.reviewer?.email || "Admin"}
                     </span>
                     <span>
-                      {item.createdAt ? new Date(item.createdAt).toLocaleString() : ""}
+                      {item.createdAt ? parseDbTimestamp(item.createdAt)?.toLocaleString() : ""}
                     </span>
                   </div>
                   {item.notes ? (

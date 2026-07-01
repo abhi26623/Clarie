@@ -4,7 +4,7 @@ import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { authClient } from "@claire/auth/client";
-import { SkeletonCard, StatusBadge } from "@claire/ui";
+import { SkeletonCard, StatusBadge, formatRelative } from "@claire/ui";
 import { ArrowLeft, Clock, ShieldAlert, CheckCircle2, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
@@ -85,17 +85,7 @@ export default function ApprovalsListPage() {
             const latestReview = (feature as any).aiReviews?.[0];
             const readyTimestamp = latestReview?.completedAt;
             
-            let timeSinceText = "Recently";
-            if (readyTimestamp) {
-              const diffMs = Date.now() - new Date(readyTimestamp).getTime();
-              const diffMins = Math.floor(diffMs / 60000);
-              const diffHours = Math.floor(diffMins / 60);
-              const diffDays = Math.floor(diffHours / 24);
-
-              if (diffDays > 0) timeSinceText = `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-              else if (diffHours > 0) timeSinceText = `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-              else if (diffMins > 0) timeSinceText = `${diffMins} min${diffMins > 1 ? "s" : ""} ago`;
-            }
+            const timeSinceText = formatRelative(readyTimestamp);
 
             // AI Review Status (passed === true && status === 'completed' in blocking / non-blocking vocabulary)
             let reviewBadge = <span className="badge badge--neutral">No AI Review</span>;

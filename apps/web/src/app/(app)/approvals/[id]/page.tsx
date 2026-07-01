@@ -4,18 +4,17 @@ import React, { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { authClient } from "@claire/auth/client";
-import { SkeletonCard, ConfettiCelebration, Crossfade } from "@claire/ui";
+import { SkeletonCard, ConfettiCelebration, Crossfade, parseDbTimestamp } from "@claire/ui";
 import {
-  ArrowLeft,
-  ShieldAlert,
-  CheckCircle2,
   AlertCircle,
+  ArrowLeft,
   ChevronDown,
   ChevronUp,
   Check,
   Circle,
   ExternalLink,
   Info,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ApprovalTimeline } from "@/components/ApprovalTimeline";
@@ -178,10 +177,10 @@ export default function ApprovalDecisionPage() {
               <h2 className="text-4xl font-display text-ink">{shippedFeature.title || feature.title}</h2>
               <p className="text-sm text-ink-secondary font-mono">
                 Requested by {feature.submitterName || feature.submitterEmail || "Anonymous"} on{" "}
-                {feature.createdAt ? new Date(feature.createdAt).toLocaleDateString() : "N/A"}
+                {feature.createdAt ? parseDbTimestamp(feature.createdAt)?.toLocaleDateString() : "N/A"}
               </p>
               <p className="text-sm text-ink-secondary font-mono">
-                Shipped on {shippedFeature.updatedAt ? new Date(shippedFeature.updatedAt).toLocaleDateString() : new Date().toLocaleDateString()}
+                Shipped on {shippedFeature.updatedAt ? parseDbTimestamp(shippedFeature.updatedAt)?.toLocaleDateString() : new Date().toLocaleDateString()}
               </p>
             </div>
 
@@ -316,7 +315,7 @@ export default function ApprovalDecisionPage() {
                               <div key={prev.id} className="p-4 bg-canvas border border-subtle rounded-md space-y-2 text-xs">
                                 <div className="flex items-center justify-between font-mono text-2xs text-ink-tertiary">
                                   <span>Review #{prev.reviewNumber}</span>
-                                  <span>{prev.completedAt ? new Date(prev.completedAt).toLocaleDateString() : "N/A"}</span>
+                                  <span>{prev.completedAt ? parseDbTimestamp(prev.completedAt)?.toLocaleDateString() : "N/A"}</span>
                                 </div>
                                 <p className="text-ink-secondary">{prev.summary}</p>
                               </div>

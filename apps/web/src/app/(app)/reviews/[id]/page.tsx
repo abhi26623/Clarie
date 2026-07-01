@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { StatusBadge } from "@claire/ui";
+import { StatusBadge, parseDbTimestamp } from "@claire/ui";
 import { toast } from "sonner";
 import {
   ArrowLeft, ExternalLink, Link2, ChevronDown, ChevronUp,
@@ -275,7 +275,7 @@ function ReviewHistory({ history, currentId }: { history: any[]; currentId: numb
                   style={{ color: "var(--ink-tertiary)" }}
                 >
                   {rev.completedAt
-                    ? new Date(rev.completedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                    ? parseDbTimestamp(rev.completedAt)?.toLocaleDateString(undefined, { month: "short", day: "numeric" })
                     : ""}
                 </span>
 

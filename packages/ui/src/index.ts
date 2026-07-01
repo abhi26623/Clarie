@@ -27,3 +27,4 @@ export type { ConfettiCelebrationProps } from "./confetti";
 export { KanbanBoard } from "./kanban";
 export type { KanbanBoardProps, TaskItem } from "./kanban";
 
+export { parseDbTimestamp, formatRelative } from "./date-utils";

@@ -1,6 +1,6 @@
 "use client";
 import { trpc } from "@/lib/trpc";
-import { StatusBadge } from "@claire/ui";
+import { StatusBadge, parseDbTimestamp } from "@claire/ui";
 import Link from "next/link";
 const TERMINAL = [
   "prd_ready", "tasks_generating", "tasks_ready", "in_development",
@@ -173,7 +173,7 @@ export default function TrackingPage({ params }: { params: { slug: string; token
 
       <div style={{ marginTop: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ color: "var(--ink-tertiary)", fontSize: "var(--text-xs)" }}>
-          Submitted {new Date(data.createdAt ?? "").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          Submitted {parseDbTimestamp(data.createdAt)?.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
         </span>
         <Link href={`/p/${slug}`} className="btn" style={{ padding: "6px 12px", fontSize: 13 }}>
           Submit another idea →

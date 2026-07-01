@@ -9,13 +9,13 @@ import { ActionCenter } from "./action-center";
 
 export function TopBar() {
   return (
-    <div className="flex flex-col w-full z-[var(--z-sticky)] sticky top-0 bg-canvas">
-      <header className="flex h-14 items-center justify-between px-4 border-b border-subtle">
-        <div className="flex items-center gap-4">
+    <div className="flex flex-col w-full shrink-0 z-[var(--z-sticky)] sticky top-0 bg-canvas">
+      <header className="flex h-14 shrink-0 items-center justify-between px-4 border-b border-subtle">
+        <div className="flex items-center gap-4 h-full">
           <MobileNav />
           <OrgSwitcher />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 h-full">
           <ActionCenter />
           <UserMenu />
         </div>

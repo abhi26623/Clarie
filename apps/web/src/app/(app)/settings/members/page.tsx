@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import * as React from "react";
 import { trpc } from "@/lib/trpc";
-import { SkeletonCard, EmptyState } from "@claire/ui";
+import { SkeletonCard, EmptyState, parseDbTimestamp } from "@claire/ui";
 import { Users, Copy, Check, Link2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -195,7 +195,7 @@ export default function MembersPage() {
                   {m.createdAt && (
                     <span className="text-xs text-ink-tertiary hidden sm:block">
                       Joined{" "}
-                      {new Date(m.createdAt).toLocaleDateString(undefined, {
+                      {parseDbTimestamp(m.createdAt)?.toLocaleDateString(undefined, {
                         month: "short",
                         day: "numeric",
                         year: "numeric",

@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { eq, sql, and } from "drizzle-orm";
 
 import { DemoLogoutRedirect } from "./DemoLogoutRedirect";
+import { parseDbTimestamp } from "@claire/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function JoinPage({ params }: { params: { token: string } }
   const [invite] = await db.select().from(inviteLinks).where(eq(inviteLinks.token, token));
   const now = new Date();
   
-  const isInvalid = !invite || new Date(invite.expiresAt) < now;
+  const isInvalid = !invite || parseDbTimestamp(invite.expiresAt)! < now;
   
   const session = await auth.api.getSession({ headers: headers() });
   
@@ -103,7 +104,7 @@ export default async function JoinPage({ params }: { params: { token: string } }
     
     // Server-side re-validation of token to prevent bypass
     const [freshInvite] = await db.select().from(inviteLinks).where(eq(inviteLinks.token, token));
-    if (!freshInvite || new Date(freshInvite.expiresAt) < new Date()) {
+    if (!freshInvite || parseDbTimestamp(freshInvite.expiresAt)! < new Date()) {
       throw new Error("Invite is invalid or expired");
     }
     

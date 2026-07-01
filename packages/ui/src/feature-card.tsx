@@ -2,6 +2,7 @@ import * as React from "react";
 import { StatusBadge, BadgeTier } from "./status-badge";
 import { ArrowRight, User } from "lucide-react";
 import Link from "next/link";
+import { formatRelative } from "./date-utils";
 
 export interface FeatureCardProps {
   id: string;
@@ -29,24 +30,6 @@ export function FeatureCard({
   href,
 }: FeatureCardProps) {
   
-  // Format relative timestamp
-  const formatRelative = (dateStrOrObj: string | Date) => {
-    try {
-      const date = typeof dateStrOrObj === "string" ? new Date(dateStrOrObj) : dateStrOrObj;
-      const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-      const diffMs = date.getTime() - Date.now();
-      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-      
-      if (Math.abs(diffDays) < 1) {
-        const diffHours = Math.round(diffMs / (1000 * 60 * 60));
-        return rtf.format(diffHours, "hour");
-      }
-      return rtf.format(diffDays, "day");
-    } catch {
-      return "recently";
-    }
-  };
-
   const timeString = formatRelative(timestamp);
 
   return (

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { trpc } from "@/lib/trpc";
 import { useSearchParams, useRouter } from "next/navigation";
-import { StatusBadge, EmptyState, SkeletonCard } from "@claire/ui";
+import { StatusBadge, EmptyState, SkeletonCard, parseDbTimestamp } from "@claire/ui";
 import { Code2, RefreshCw, Unlink, RotateCcw, Play, Clock } from "lucide-react";
 import { toast } from "sonner";
 
@@ -299,7 +299,7 @@ export default function GithubSettingsPage() {
                       <p className="text-xs font-mono mt-0.5" style={{ color: "var(--ink-tertiary)" }}>
                         {repoName} · {action} ·{" "}
                         {log.createdAt
-                          ? new Date(log.createdAt).toLocaleString(undefined, {
+                          ? parseDbTimestamp(log.createdAt)?.toLocaleString(undefined, {
                               month: "short",
                               day: "numeric",
                               hour: "2-digit",
