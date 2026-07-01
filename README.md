@@ -281,6 +281,16 @@ One-time **Upgrade to Pro** flow: server-created order → Razorpay Standard Che
 
 ---
 
+## 🔒 Security & Multi-Tenant Isolation
+
+Claire enforces strict multi-tenant data boundaries and securely quarantines the shared demo experience:
+- **Global Data Isolation:** All API queries and mutations strictly filter by `ctx.orgId` derived from the server session. Cross-tenant reads/writes are impossible.
+- **Systemic Demo Quarantine:** The demo user (`demo@claire.app`) is strictly hardcoded to the demo organization (`DEMO_ORG_ID`). A global tRPC middleware (`protectedOrgProcedure`) guarantees that the demo user gets `FORBIDDEN` if they attempt to interact with any other workspace, preventing cross-tenant contamination.
+- **Secure Invites:** Workspace invite links are protected against stale-session attacks. `joinAction` server actions validate the invite token and extract the `organizationId` natively from the server database, never trusting the client closure.
+- **CSRF Protection:** State-mutating actions (such as demo-logout) are correctly implemented as `POST` endpoints to prevent `<Link>` prefetch side-effects or crawler-induced logouts.
+
+---
+
 ## ✅ Demo walkthrough
 
 1. Sign in as `demo@claire.app` / `demo123456`.
