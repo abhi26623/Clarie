@@ -142,6 +142,9 @@ importers:
 
   packages/api:
     dependencies:
+      '@claire/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@claire/auth':
         specifier: workspace:*
         version: link:../auth

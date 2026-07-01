@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { router, publicProcedure, protectedOrgProcedure } from "../trpc";
-import { db, featureRequests, clarificationThreads, workspaceSettings, workflowSteps, member, AI_CREDIT_COSTS, getRemainingCredits } from "@claire/db";
+import { db, featureRequests, clarificationThreads, workspaceSettings, workflowSteps, member, AI_CREDIT_COSTS, getRemainingCredits, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL } from "@claire/db";
 import { TRPCError } from "@trpc/server";
-import { eq, and, desc, isNull, or, inArray, lt } from "drizzle-orm";
+import { eq, and, desc, isNull, or, inArray, lt, notInArray } from "drizzle-orm";
 import { inngest } from "@claire/jobs";
 import { ensureActiveOrganization } from "@claire/auth";
+import { generateObjectResilient } from "@claire/ai";
+import { POST_TRIAGE_PHASES, getWorkspaceExistingFeaturesContext, TRIAGE_SYSTEM_PROMPT, decisionSchema } from "../lib/triage";
 
 export const featureRouter = router({
   list: protectedOrgProcedure.query(async ({ ctx }) => {
@@ -102,9 +104,93 @@ export const featureRouter = router({
       });
 
       try {
-        await inngest.send({ name: "feature/intake", data: { featureRequestId: created.id, organizationId: targetOrgId } });
+        await db.insert(workflowSteps).values({
+          entityType: "feature_request",
+          entityId: String(created.id),
+          step: "analyze",
+          status: "running",
+          partialResult: { label: "Analyzing your request" },
+        });
+
+        await db.update(featureRequests)
+          .set({ status: "analyzing" })
+          .where(and(eq(featureRequests.id, created.id), notInArray(featureRequests.status, ["analyzing", "prd_generating", ...POST_TRIAGE_PHASES] as any)));
+
+        const existingContext = await getWorkspaceExistingFeaturesContext(targetOrgId, created.id);
+        const result = await generateObjectResilient({
+          schema: decisionSchema,
+          system: TRIAGE_SYSTEM_PROMPT,
+          prompt: `Feature request title: "${created.title}"\nDetails: "${created.body}"${existingContext}\n\nClassify and decide how to handle it.`,
+          modelPurpose: "light",
+          maxAttempts: 1,
+          timeoutMs: 55_000,
+        });
+
+        // Consume triage credit AFTER successful classification.
+        try {
+          await consumeAiCredits(targetOrgId, AI_CREDIT_COSTS.triage);
+        } catch (err: any) {
+          if (err instanceof CreditsExhaustedError) {
+            await db.update(featureRequests)
+              .set({ status: "failed", aiReasoning: `${CREDITS_EXHAUSTED_SENTINEL}${err.message}` })
+              .where(eq(featureRequests.id, created.id));
+            await db.insert(workflowSteps).values({
+              entityType: "feature_request", entityId: String(created.id), step: "failed", status: "failed", partialResult: { label: "Credits exhausted" }
+            });
+            return { id: created.id, organizationId: targetOrgId, trackingToken, canViewDashboard };
+          }
+          throw err;
+        }
+
+        if (result.decision === "clarification_needed" && result.clarification) {
+          await db.insert(clarificationThreads).values({
+            featureRequestId: created.id,
+            question: result.clarification.question,
+            questionType: result.clarification.questionType ?? "TEXT",
+            options: result.clarification.options ?? null,
+          });
+          await db.update(featureRequests)
+            .set({ status: "clarification_needed", aiDecision: result.decision, aiReasoning: result.reasoning })
+            .where(eq(featureRequests.id, created.id));
+          await db.insert(workflowSteps).values({
+            entityType: "feature_request", entityId: String(created.id), step: "clarification", status: "done", partialResult: { label: "Clarification needed", question: result.clarification.question }
+          });
+          return { id: created.id, organizationId: targetOrgId, trackingToken, canViewDashboard };
+        }
+
+        if (result.decision === "duplicate" || result.decision === "feature_exists" || result.decision === "out_of_scope" || result.decision === "bug_report") {
+          const labelMap: Record<string, string> = {
+            duplicate: "Duplicate request",
+            feature_exists: "Feature already exists",
+            out_of_scope: "Out of scope",
+            bug_report: "Bug report received"
+          };
+          await db.update(featureRequests)
+            .set({ status: result.decision, aiDecision: result.decision, aiReasoning: result.reasoning })
+            .where(eq(featureRequests.id, created.id));
+          await db.insert(workflowSteps).values({
+            entityType: "feature_request", entityId: String(created.id), step: "classified", status: "done", partialResult: { label: labelMap[result.decision] || "Classified", reasoning: result.reasoning }
+          });
+          return { id: created.id, organizationId: targetOrgId, trackingToken, canViewDashboard };
+        }
+
+        // decision === "proceed"
+        await db.update(featureRequests)
+          .set({ status: "prd_generating" })
+          .where(eq(featureRequests.id, created.id));
+          
+        await db.insert(workflowSteps).values({
+          entityType: "feature_request", entityId: String(created.id), step: "prd", status: "running", partialResult: { label: "Generating product requirements" }
+        });
+        
+        await inngest.send({ name: "feature/prd.generate", data: { featureRequestId: created.id, organizationId: targetOrgId }, id: `prd-gen-${created.id}` }); // Double-submit dedup!
+
       } catch (error) {
-        console.error("Failed to send inngest event:", error);
+        console.error("Inline triage failed:", error);
+        // Graceful error handling: flip running steps to failed, leave feature in received/analyzing to allow retry
+        await db.update(workflowSteps)
+          .set({ status: "failed", partialResult: { label: "AI triage failed (retryable)" } })
+          .where(and(eq(workflowSteps.entityType, "feature_request"), eq(workflowSteps.entityId, String(created.id)), eq(workflowSteps.status, "running")));
       }
 
       return { id: created.id, organizationId: targetOrgId, trackingToken, canViewDashboard };

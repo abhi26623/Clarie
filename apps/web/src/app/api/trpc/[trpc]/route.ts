@@ -3,6 +3,7 @@ import { appRouter, createContext } from "@claire/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const handler = async (req: Request) => {
   return fetchRequestHandler({

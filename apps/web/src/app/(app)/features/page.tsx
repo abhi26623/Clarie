@@ -34,8 +34,14 @@ function FeaturesSkeleton() {
 export default function FeaturesPage() {
   const router = useRouter();
   const { data: session, isPending: sessionLoading } = useSession();
-  const { data, isLoading: dataLoading, error, refetch } = trpc.feature.list.useQuery();
+  const IN_FLIGHT_STATUSES = new Set([
+    "received", "analyzing", "prd_generating", "tasks_generating", "in_development", "in_review",
+  ]);
 
+  const { data, isLoading: dataLoading, error, refetch } = trpc.feature.list.useQuery(undefined, {
+    refetchInterval: (query) =>
+      query.state.data?.some(f => IN_FLIGHT_STATUSES.has(f.status)) ? 2000 : false
+  });
   const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
 
   const isLoading = sessionLoading || dataLoading;

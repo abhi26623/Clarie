@@ -77,6 +77,7 @@ export default function FeatureDetailPage() {
   const isAdmin = currentUserMember?.role === "admin" || currentUserMember?.role === "owner";
 
   const IN_FLIGHT_STATUSES = [
+    "received",
     "analyzing",
     "prd_generating",
     "tasks_generating",

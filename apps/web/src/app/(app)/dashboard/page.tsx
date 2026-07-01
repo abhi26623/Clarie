@@ -39,8 +39,14 @@ function DashboardSkeleton() {
 export default function Dashboard() {
   const router = useRouter();
   const { data: session, isPending: sessionLoading } = useSession();
-  const { data, isLoading: dataLoading, error: dataError, refetch } = trpc.feature.list.useQuery();
-  
+  const IN_FLIGHT_STATUSES = new Set([
+    "received", "analyzing", "prd_generating", "tasks_generating", "in_development", "in_review",
+  ]);
+
+  const { data, isLoading: dataLoading, error: dataError, refetch } = trpc.feature.list.useQuery(undefined, {
+    refetchInterval: (query) =>
+      query.state.data?.some(f => IN_FLIGHT_STATUSES.has(f.status)) ? 2000 : false
+  });
   // Self-heal workspace settings
   trpc.organization.ensureSettings.useQuery(undefined, {
     enabled: !!session?.session?.activeOrganizationId,
