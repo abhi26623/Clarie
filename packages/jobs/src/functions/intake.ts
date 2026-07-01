@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { eq, ne, and, inArray, desc } from "drizzle-orm";
-import { db, featureRequests, clarificationThreads, prds, AI_CREDIT_COSTS, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL } from "@claire/db";
+import { db, featureRequests, clarificationThreads, prds, workflowSteps, AI_CREDIT_COSTS, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL } from "@claire/db";
 import { generateObjectResilient } from "@claire/ai";
 import { inngest } from "../client";
 import { runWorkflow, writeStep } from "../run-workflow";
@@ -10,6 +10,28 @@ export const ACTIVE_TRIAGE_STATUSES = [
   "prd_generating", "prd_ready", "tasks_generating", "tasks_ready",
   "in_development", "in_review", "fix_needed", "ready_for_approval", "shipped"
 ] as const;
+
+export async function reconcileIntakeFailure(id: number) {
+  // Check if a PRD was successfully generated despite the cancellation/failure
+  const existingPrd = await db.query.prds.findFirst({
+    where: (prds, { eq }) => eq(prds.featureRequestId, id)
+  });
+
+  const finalStatus = existingPrd ? "prd_ready" : "failed";
+
+  await db.update(featureRequests)
+    .set({ status: finalStatus })
+    .where(eq(featureRequests.id, id));
+
+  // Flip any orphaned running steps to failed
+  await db.update(workflowSteps)
+    .set({ status: "failed" })
+    .where(and(
+      eq(workflowSteps.entityType, "feature_request"),
+      eq(workflowSteps.entityId, String(id)),
+      eq(workflowSteps.status, "running")
+    ));
+}
 
 export async function getWorkspaceExistingFeaturesContext(organizationId: string, currentId: number): Promise<string> {
   const existingReqs = await db.select({
@@ -112,7 +134,16 @@ const prdSchema = z.object({
 });
 
 export const intakeWorkflow = inngest.createFunction(
-  { id: "feature-intake", retries: 2, timeouts: { finish: "4m" } },
+  {
+    id: "feature-intake",
+    retries: 2,
+    timeouts: { finish: "4m" },
+    onFailure: async ({ event }) => {
+      // Reconcile on failure
+      const reqId = event.data.event.data.featureRequestId as number;
+      await reconcileIntakeFailure(reqId);
+    }
+  },
   { event: "feature/intake" },
   async ({ event, step }) => {
     const id = event.data.featureRequestId as number;
@@ -220,15 +251,21 @@ export const intakeWorkflow = inngest.createFunction(
           timeoutMs: 55_000,
         });
 
-        await db.insert(prds).values({
-          featureRequestId: id,
-          problemStatement: prd.problemStatement,
-          goals: prd.goals,
-          nonGoals: prd.nonGoals,
-          userStories: prd.userStories,
-          acceptanceCriteria: prd.acceptanceCriteria,
-          edgeCases: prd.edgeCases,
-          successMetrics: prd.successMetrics,
+        await db.transaction(async (tx) => {
+          await tx.insert(prds).values({
+            featureRequestId: id,
+            problemStatement: prd.problemStatement,
+            goals: prd.goals,
+            nonGoals: prd.nonGoals,
+            userStories: prd.userStories,
+            acceptanceCriteria: prd.acceptanceCriteria,
+            edgeCases: prd.edgeCases,
+            successMetrics: prd.successMetrics,
+          });
+
+          await tx.update(featureRequests)
+            .set({ status: "prd_ready", aiDecision: result.decision, aiReasoning: result.reasoning })
+            .where(eq(featureRequests.id, id));
         });
       });
 
@@ -251,10 +288,6 @@ export const intakeWorkflow = inngest.createFunction(
         return;
       }
 
-      await db.update(featureRequests)
-        .set({ status: "prd_ready", aiDecision: result.decision, aiReasoning: result.reasoning })
-        .where(eq(featureRequests.id, id));
-
       await writeStep(ctx, "prd", "done", { label: "PRD ready for review" });
       });
     } catch (err) {
@@ -272,4 +305,19 @@ export const intakeWorkflow = inngest.createFunction(
       throw err; // Rethrow so Inngest marks run as failed and retries
     }
   },
+);
+
+export const intakeWorkflowCancel = inngest.createFunction(
+  { id: "feature-intake-cancel-handler", retries: 0 },
+  { event: "inngest/function.cancelled" },
+  async ({ event }) => {
+    // Only react to feature-intake cancellations
+    if (event.data.function_id === "feature-intake") {
+      // Inngest cancellation events include the original event in `event.data.event`
+      const originalEvent = event.data.event as any;
+      if (originalEvent?.data?.featureRequestId) {
+        await reconcileIntakeFailure(originalEvent.data.featureRequestId);
+      }
+    }
+  }
 );

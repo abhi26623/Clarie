@@ -1,5 +1,5 @@
 import { inngest } from "./client";
-import { intakeWorkflow } from "./functions/intake";
+import { intakeWorkflow, intakeWorkflowCancel } from "./functions/intake";
 import { clarificationAnsweredWorkflow } from "./functions/clarification";
 import { prdApprovedWorkflow } from "./functions/prd";
 import { featureShippedWorkflow } from "./functions/ship";
@@ -18,6 +18,7 @@ const noop = inngest.createFunction(
 export const functions = [
   noop,
   intakeWorkflow,
+  intakeWorkflowCancel,
   clarificationAnsweredWorkflow,
   prdApprovedWorkflow,
   featureShippedWorkflow,
