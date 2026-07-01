@@ -30,6 +30,7 @@ import {
   CheckCircle2,
   GitMerge,
   ShieldCheck,
+  Circle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -108,6 +109,30 @@ export default function FeatureDetailPage() {
         feature && IN_FLIGHT_STATUSES.includes(feature.status ?? "") ? 1200 : false,
     }
   );
+
+  const getStatusLabel = (st: string) => {
+    const map: Record<string, string> = {
+      received: "Received",
+      analyzing: "Analyzing",
+      clarification_needed: "Clarification Needed",
+      prd_generating: "Generating PRD",
+      prd_ready: "PRD Ready",
+      tasks_generating: "Generating Tasks",
+      tasks_ready: "Tasks Ready",
+      in_development: "In Development",
+      in_review: "In Review",
+      fix_needed: "Fix Needed",
+      ready_for_approval: "Ready for Approval",
+      shipped: "Shipped",
+      failed: "Failed",
+      rejected: "Rejected",
+      duplicate: "Duplicate",
+      feature_exists: "Feature Exists",
+      bug_report: "Bug Report",
+      out_of_scope: "Out of Scope"
+    };
+    return map[st] || st;
+  };
 
   const phases = useMemo(() => {
     if (!feature) return [];
@@ -517,11 +542,11 @@ export default function FeatureDetailPage() {
         };
 
         return (
-          <div className="space-y-8">
+          <div className="space-y-8 pb-24">
             <Stagger className="space-y-8">
               {/* Problem Statement */}
               <motion.div variants={itemVariant} className="card p-8 border border-border bg-surface">
-                <h3 className="eyebrow mb-3">Problem Statement</h3>
+                <h3 className="eyebrow !text-[var(--green-800)] mb-3">Problem Statement</h3>
                 <p className="text-md font-sans text-ink-secondary leading-relaxed max-w-[65ch]">
                   {prd.problemStatement}
                 </p>
@@ -529,24 +554,22 @@ export default function FeatureDetailPage() {
 
               {/* Goals / Non-Goals */}
               <motion.div variants={itemVariant} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="card p-6 border border-border bg-surface">
-                  <h3 className="text-label mb-4">Goals</h3>
-                  <ul className="space-y-3">
+                <div className="card p-6 border border-border bg-surface border-l-2 border-l-[var(--green-800)]">
+                  <h3 className="text-label !text-[var(--green-800)] mb-4">Goals</h3>
+                  <ul className="space-y-2 list-disc list-outside pl-4">
                     {(prd.goals as string[] | null)?.map((goal, idx) => (
-                      <li key={idx} className="flex items-start gap-3 text-sm text-ink-secondary">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent mt-2 flex-shrink-0" />
-                        <span>{goal}</span>
+                      <li key={idx} className="text-sm text-ink-secondary">
+                        {goal}
                       </li>
                     ))}
                   </ul>
                 </div>
-                <div className="card p-6 border border-border bg-surface">
-                  <h3 className="text-label mb-4">Non-Goals</h3>
-                  <ul className="space-y-3">
+                <div className="card p-6 border border-border bg-surface border-l-2 border-l-[var(--border-strong)]">
+                  <h3 className="text-label !text-[var(--green-800)] mb-4">Non-Goals</h3>
+                  <ul className="space-y-2 list-disc list-outside pl-4">
                     {(prd.nonGoals as string[] | null)?.map((ngoal, idx) => (
-                      <li key={idx} className="flex items-start gap-3 text-sm text-ink-tertiary">
-                        <span className="w-1.5 h-1.5 rounded-full bg-border-strong mt-2 flex-shrink-0" />
-                        <span>{ngoal}</span>
+                      <li key={idx} className="text-sm text-ink-tertiary muted">
+                        {ngoal}
                       </li>
                     ))}
                   </ul>
@@ -555,7 +578,7 @@ export default function FeatureDetailPage() {
 
               {/* User Stories */}
               <motion.div variants={itemVariant} className="card p-6 border border-border bg-surface">
-                <h3 className="text-label mb-4">User Stories</h3>
+                <h3 className="text-label !text-[var(--green-800)] mb-4">User Stories</h3>
                 <div className="space-y-3">
                   {(prd.userStories as string[] | null)?.map((story, idx) => (
                     <div key={idx} className="p-4 bg-surface-raised border border-subtle rounded-md text-sm text-ink-secondary">
@@ -567,45 +590,96 @@ export default function FeatureDetailPage() {
 
               {/* Acceptance Criteria */}
               <motion.div variants={itemVariant} className="card p-6 border border-border bg-surface">
-                <h3 className="text-label mb-4">Acceptance Criteria</h3>
-                <div className="space-y-3">
-                  {(prd.acceptanceCriteria as Array<{ id: string; text: string } | string> | null)?.map((crit, idx) => (
-                    <div key={idx} className="flex items-center gap-3 p-3 bg-canvas border border-subtle rounded-md text-sm text-ink-secondary">
-                      <Check size={16} className="text-accent flex-shrink-0" />
-                      <span>{typeof crit === "string" ? crit : crit.text}</span>
+                <h3 className="text-label !text-[var(--green-800)] mb-4">Acceptance Criteria</h3>
+                {(() => {
+                  const prdCriteria = Array.isArray(prd.acceptanceCriteria) ? prd.acceptanceCriteria : [];
+                  const latestReview = [...(feature.aiReviews ?? [])].sort(
+                    (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+                  )[0];
+                  const verdicts = latestReview?.criteriaVerdicts as Array<{criterionId: string; text?: string; verdict: "met"|"partial"|"not_met"; evidence: string}> | undefined;
+                  const hasReview = verdicts && verdicts.length > 0;
+
+                  const criteriaList = prdCriteria.map((crit: any) => {
+                    const id = typeof crit === "string" ? crit : crit.id;
+                    const text = typeof crit === "string" ? crit : crit.text;
+                    const verdictMatch = hasReview ? verdicts.find(v => v.criterionId === id || (typeof crit === "string" && crit === v.criterionId)) : null;
+                    return { id, text, verdict: verdictMatch?.verdict, evidence: verdictMatch?.evidence };
+                  });
+
+                  const metCount = criteriaList.filter(c => c.verdict === "met").length;
+                  const totalCount = criteriaList.length;
+
+                  return (
+                    <div className="space-y-3">
+                      {hasReview && totalCount > 0 && (
+                        <div className="text-xs font-medium text-ink-secondary mb-2">
+                          {metCount} of {totalCount} criteria met
+                        </div>
+                      )}
+                      {criteriaList.map((crit, idx) => {
+                        let rowClass = "flex items-start gap-3 p-3 bg-canvas border border-subtle rounded-md text-sm text-ink-secondary";
+                        let Icon = Circle;
+                        let iconClass = "text-ink-tertiary flex-shrink-0 mt-0.5";
+
+                        if (hasReview) {
+                          if (crit.verdict === "met") {
+                            rowClass = "flex items-start gap-3 p-3 bg-[var(--status-success-bg)] border-y border-r border-l-2 border-l-[var(--status-success-border)] border-y-[var(--border-subtle)] border-r-[var(--border-subtle)] rounded-md text-sm text-ink-secondary";
+                            Icon = Check;
+                            iconClass = "text-[var(--status-success-fg)] flex-shrink-0 mt-0.5";
+                          } else if (crit.verdict === "partial") {
+                            rowClass = "flex items-start gap-3 p-3 bg-[var(--status-warning-bg)] border-y border-r border-l-2 border-l-[var(--status-warning-border)] border-y-[var(--border-subtle)] border-r-[var(--border-subtle)] rounded-md text-sm text-ink-secondary";
+                            Icon = AlertTriangle;
+                            iconClass = "text-[var(--status-warning-fg)] flex-shrink-0 mt-0.5";
+                          } else {
+                            rowClass = "flex items-start gap-3 p-3 bg-[var(--status-error-bg)] border-y border-r border-l-2 border-l-[var(--status-error-border)] border-y-[var(--border-subtle)] border-r-[var(--border-subtle)] rounded-md text-sm text-ink-secondary";
+                            Icon = X;
+                            iconClass = "text-[var(--status-error-fg)] flex-shrink-0 mt-0.5";
+                          }
+                        }
+
+                        return (
+                          <div key={idx} className={rowClass}>
+                            <Icon size={16} className={iconClass} />
+                            <div className="flex-1 flex flex-col gap-1">
+                              <span>{crit.text}</span>
+                              {crit.evidence && <span className="text-xs font-mono text-[var(--status-neutral-fg)] opacity-80 mt-1">↳ {crit.evidence}</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
               </motion.div>
 
               {/* Edge Cases & Success Metrics */}
               <motion.div variants={itemVariant} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="card p-6 border border-border bg-surface">
-                  <h3 className="text-label mb-4">Edge Cases</h3>
+                <div className="card p-6 border border-border bg-surface border-l-2 border-l-[var(--status-warning-border)]">
+                  <h3 className="text-label !text-[var(--green-800)] mb-4">Edge Cases</h3>
                   <div className="space-y-3">
                     {(prd.edgeCases as string[] | null)?.map((edge, idx) => (
-                      <div key={idx} className="flex items-center gap-3 text-sm text-ink-secondary">
-                        <AlertTriangle size={16} className="text-status-warning-fg flex-shrink-0" />
+                      <div key={idx} className="flex items-start gap-3 text-sm text-ink-secondary">
+                        <AlertTriangle size={16} className="text-[var(--status-warning-fg)] flex-shrink-0 mt-0.5" />
                         <span>{edge}</span>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div className="card p-6 border border-border bg-surface">
-                  <h3 className="text-label mb-4">Success Metrics</h3>
-                  <div className="flex flex-wrap gap-2">
+                  <h3 className="text-label !text-[var(--green-800)] mb-4">Success Metrics</h3>
+                  <ul className="space-y-2 list-disc list-outside pl-4">
                     {(prd.successMetrics as string[] | null)?.map((met, idx) => (
-                      <span key={idx} className="text-mono text-2xs bg-surface-raised px-3 py-1.5 rounded-full border border-subtle text-ink-secondary">
+                      <li key={idx} className="text-sm text-ink-secondary">
                         {met}
-                      </span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               </motion.div>
 
               {/* Admin Actions */}
               {isAdmin && (
-                <motion.div variants={itemVariant} className="card p-6 border border-border bg-surface flex flex-wrap items-center justify-between gap-4 mt-8">
+                <motion.div variants={itemVariant} className="sticky bottom-0 z-[var(--z-sticky)] p-4 border-t border-[var(--border-subtle)] bg-[var(--surface)] flex flex-wrap items-center justify-between gap-4 mt-8 -mx-6 px-6 lg:mx-0 lg:px-6 lg:rounded-b-lg shadow-sm">
                   <div>
                     <h4 className="text-sm font-medium text-ink">Admin Plan Review</h4>
                     <p className="text-xs text-ink-tertiary">Review and approve this PRD to generate engineering tasks.</p>
@@ -857,12 +931,14 @@ export default function FeatureDetailPage() {
 
       <div className="mb-10 flex items-center justify-between border-b border-subtle pb-6">
         <div>
-          <h1 className="text-3xl font-display text-ink mb-2">{feature.title}</h1>
+          <h1 className="text-3xl font-display text-ink mb-2">
+            {feature.title ? feature.title.charAt(0).toUpperCase() + feature.title.slice(1) : ""}
+          </h1>
           <p className="text-sm text-ink-tertiary font-mono">
-            Request #{feature.id} · Token: {feature.trackingToken}
+            Request #{feature.id}
           </p>
         </div>
-        <StatusBadge status={feature.status as any} tier={getBadgeTier(feature.status ?? "") as any} />
+        <StatusBadge status={getStatusLabel(feature.status ?? "")} tier={getBadgeTier(feature.status ?? "") as any} />
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">

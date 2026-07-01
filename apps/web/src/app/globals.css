@@ -741,10 +741,16 @@ label {
   background-color: var(--border-strong);
 }
 .stepper__dot--active {
-  background-color: var(--accent);
+  background-color: var(--canvas);
+  border: 2px solid var(--green-800);
+  width: 10px;
+  height: 10px;
 }
 .stepper__icon--done {
-  color: var(--status-success-fg);
+  color: var(--ink-inverse);
+  background-color: var(--green-800);
+  border-radius: 50%;
+  padding: 1px;
 }
 
 .stepper__content {
