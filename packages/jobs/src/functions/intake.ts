@@ -313,8 +313,8 @@ export const intakeWorkflowCancel = inngest.createFunction(
   { id: "feature-intake-cancel-handler", retries: 0 },
   { event: "inngest/function.cancelled" },
   async ({ event }) => {
-    // Only react to feature-intake cancellations
-    if (event.data.function_id === "feature-intake") {
+    // React to both feature-intake and feature-clarification-answered cancellations
+    if (event.data.function_id === "feature-intake" || event.data.function_id === "feature-clarification-answered") {
       // Inngest cancellation events include the original event in `event.data.event`
       const originalEvent = event.data.event as any;
       if (originalEvent?.data?.featureRequestId) {
