@@ -7,12 +7,10 @@ import { runWorkflow, writeStep } from "../run-workflow";
 
 const taskSchema = z.object({
   title: z.string(),
-  description: z.string(),
+  description: z.string().describe("One concise sentence describing the task. Max ~140 chars."),
   type: z.enum(["FEATURE", "BUG", "CHORE", "TEST", "DOCS"]),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
   estimatedHours: z.number().int().positive(),
-  suggestedBranch: z.string(),
-  assignedToAI: z.boolean().default(false),
 });
 
 const tasksSchema = z.object({
@@ -40,14 +38,15 @@ export const prdApprovedWorkflow = inngest.createFunction(
         const result = await generateObjectResilient({
           schema: tasksSchema,
           system: "You are a senior engineering lead. Break down the PRD into actionable engineering tasks. Each task should be independently shippable. Use suggestedBranch names like 'feat/dark-mode-toggle'. Prefer FEATURE type unless clearly a bug, chore, test, or docs task.",
-          prompt: `Feature: "${req.title}"\n\nPRD:\nProblem: ${prd.problemStatement}\nGoals: ${JSON.stringify(prd.goals)}\nUser Stories: ${JSON.stringify(prd.userStories)}\nAcceptance Criteria: ${JSON.stringify((prd.acceptanceCriteria as any[])?.map((ac) => typeof ac === "string" ? ac : ac.text) ?? [])}\n\nGenerate engineering tasks to ship this feature.`,
+          prompt: `Feature: "${req.title}"\n\nPRD:\nProblem: ${prd.problemStatement}\nGoals: ${JSON.stringify(prd.goals)}\nUser Stories: ${JSON.stringify(prd.userStories)}\nAcceptance Criteria: ${JSON.stringify((prd.acceptanceCriteria as any[])?.map((ac) => typeof ac === "string" ? ac : ac.text) ?? [])}\n\nGenerate engineering tasks to ship this feature. Keep each description to one concise sentence.`,
           modelPurpose: "default",
           maxAttempts: 1,
-          timeoutMs: 48_000,
+          timeoutMs: 55_000,
         });
 
         let order = 0;
         for (const task of result.tasks) {
+          const safeTitle = task.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
           await db.insert(tasks).values({
             featureRequestId: id,
             title: task.title,
@@ -55,8 +54,8 @@ export const prdApprovedWorkflow = inngest.createFunction(
             type: task.type,
             priority: task.priority,
             estimatedHours: task.estimatedHours,
-            suggestedBranch: task.suggestedBranch,
-            assignedToAI: task.assignedToAI,
+            suggestedBranch: `feat/${safeTitle}-${id}`,
+            assignedToAI: false,
             order: order++,
           });
         }

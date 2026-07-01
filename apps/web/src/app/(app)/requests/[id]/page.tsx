@@ -11,6 +11,7 @@ import {
   Stagger,
   ConfettiCelebration,
   SkeletonCard,
+  SkeletonList,
   StatusBadge,
   KanbanBoard,
   parseDbTimestamp,
@@ -348,9 +349,47 @@ export default function FeatureDetailPage() {
       case "prd_generating":
       case "tasks_generating":
         return (
-          <div className="card p-8 border border-border bg-surface">
-            <h3 className="text-xl font-semibold text-ink mb-6">Live Generation in Progress</h3>
-            <WorkflowProgress steps={workflowStepsMapped} />
+          <div className="space-y-6">
+            <div className="card p-8 border border-border bg-surface">
+              <h3 className="text-xl font-semibold text-ink mb-6">Live Generation in Progress</h3>
+              <WorkflowProgress steps={workflowStepsMapped} />
+            </div>
+
+            {feature.status === "tasks_generating" && (
+              <div className="space-y-4 pt-4">
+                <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-4 shrink-0">
+                  <div>
+                    <h3 className="text-xl font-semibold text-ink">Preparing your board</h3>
+                    <p className="text-sm text-[var(--ink-secondary)] mt-1">
+                      Claire is breaking your PRD into engineering tasks. This usually takes under a minute — your board will appear here automatically.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-4 min-h-[500px] opacity-60 pointer-events-none pb-24">
+                  {/* Todo */}
+                  <div className="flex flex-col gap-3 p-4 bg-[var(--surface-raised)] rounded-md border border-[var(--border-subtle)]">
+                    <div className="eyebrow text-[var(--ink-secondary)] mb-2">Todo</div>
+                    <SkeletonList count={3} />
+                  </div>
+                  {/* In progress */}
+                  <div className="flex flex-col gap-3 p-4 bg-[var(--surface-raised)] rounded-md border border-[var(--border-subtle)]">
+                    <div className="eyebrow text-[var(--ink-secondary)] mb-2">In progress</div>
+                    <SkeletonCard />
+                  </div>
+                  {/* In review */}
+                  <div className="flex flex-col gap-3 p-4 bg-[var(--surface-raised)] rounded-md border border-[var(--border-subtle)]">
+                    <div className="eyebrow text-[var(--ink-secondary)] mb-2">In review</div>
+                    <SkeletonCard />
+                  </div>
+                  {/* Done */}
+                  <div className="flex flex-col gap-3 p-4 bg-[var(--surface-raised)] rounded-md border border-[var(--border-subtle)]">
+                    <div className="eyebrow text-[var(--ink-secondary)] mb-2">Done</div>
+                    <SkeletonCard />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
 
