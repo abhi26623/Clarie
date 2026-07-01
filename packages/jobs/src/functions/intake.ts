@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, ne, and, inArray, desc } from "drizzle-orm";
+import { eq, ne, and, inArray, desc, notInArray } from "drizzle-orm";
 import { db, featureRequests, clarificationThreads, prds, workflowSteps, AI_CREDIT_COSTS, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL } from "@claire/db";
 import { generateObjectResilient } from "@claire/ai";
 import { inngest } from "../client";
@@ -8,6 +8,11 @@ import { runWorkflow, writeStep } from "../run-workflow";
 export const ACTIVE_TRIAGE_STATUSES = [
   "received", "analyzing", "clarification_needed", "accepted",
   "prd_generating", "prd_ready", "tasks_generating", "tasks_ready",
+  "in_development", "in_review", "fix_needed", "ready_for_approval", "shipped"
+] as const;
+
+export const POST_TRIAGE_PHASES = [
+  "prd_ready", "tasks_generating", "tasks_ready",
   "in_development", "in_review", "fix_needed", "ready_for_approval", "shipped"
 ] as const;
 
@@ -155,7 +160,9 @@ export const intakeWorkflow = inngest.createFunction(
       if (!req) throw new Error(`Feature request ${id} not found`);
 
       await writeStep(ctx, "analyze", "running", { label: "Analyzing your request" });
-      await db.update(featureRequests).set({ status: "analyzing" }).where(eq(featureRequests.id, id));
+      await db.update(featureRequests)
+        .set({ status: "analyzing" })
+        .where(and(eq(featureRequests.id, id), notInArray(featureRequests.status, ["analyzing", "prd_generating", ...POST_TRIAGE_PHASES] as any)));
 
       const existingContext = await getWorkspaceExistingFeaturesContext(req.organizationId, id);
 
@@ -239,7 +246,9 @@ export const intakeWorkflow = inngest.createFunction(
 
       // decision === "proceed" — generate PRD
       await writeStep(ctx, "prd", "running", { label: "Generating product requirements" });
-      await db.update(featureRequests).set({ status: "prd_generating" }).where(eq(featureRequests.id, id));
+      await db.update(featureRequests)
+        .set({ status: "prd_generating" })
+        .where(and(eq(featureRequests.id, id), notInArray(featureRequests.status, [...POST_TRIAGE_PHASES] as any)));
 
       const prd = await step.run("generate-prd", async () => {
         return await generateObjectResilient({

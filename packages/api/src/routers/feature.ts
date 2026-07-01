@@ -195,7 +195,7 @@ export const featureRouter = router({
 
       await inngest.send({
         name: "feature/clarification.answered",
-        data: { featureRequestId: req.id, organizationId: req.organizationId },
+        data: { featureRequestId: req.id, organizationId: req.organizationId, clarificationThreadId: thread.id },
       });
 
       return { ok: true };
@@ -238,7 +238,7 @@ export const featureRouter = router({
 
       await inngest.send({
         name: "feature/clarification.answered",
-        data: { featureRequestId: input.featureId, organizationId: ctx.orgId },
+        data: { featureRequestId: input.featureId, organizationId: ctx.orgId, clarificationThreadId: input.threadId },
       });
       
       return updated;

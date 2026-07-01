@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { eq, and, notInArray } from "drizzle-orm";
 import { db, featureRequests, clarificationThreads, prds, AI_CREDIT_COSTS, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL } from "@claire/db";
 import { generateObjectResilient } from "@claire/ai";
 import { inngest } from "../client";
 import { runWorkflow, writeStep } from "../run-workflow";
-import { getWorkspaceExistingFeaturesContext, TRIAGE_SYSTEM_PROMPT, reconcileIntakeFailure } from "./intake";
+import { getWorkspaceExistingFeaturesContext, TRIAGE_SYSTEM_PROMPT, reconcileIntakeFailure, POST_TRIAGE_PHASES } from "./intake";
 
 const decisionSchema = z.object({
   decision: z.enum(["proceed", "duplicate", "feature_exists", "clarification_needed", "bug_report", "out_of_scope"]),
@@ -29,6 +29,7 @@ const prdSchema = z.object({
 export const clarificationAnsweredWorkflow = inngest.createFunction(
   { 
     id: "feature-clarification-answered", 
+    idempotency: "event.data.clarificationThreadId",
     timeouts: { finish: "4m" },
     onFailure: async ({ event }) => {
       const reqId = event.data.event.data.featureRequestId as number;
@@ -55,7 +56,9 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
       if (!answered) throw new Error("No answered clarification thread found");
 
       await writeStep(ctx, "re-analyze", "running", { label: "Re-analyzing with your answer" });
-      await db.update(featureRequests).set({ status: "analyzing" }).where(eq(featureRequests.id, id));
+      await db.update(featureRequests)
+        .set({ status: "analyzing" })
+        .where(and(eq(featureRequests.id, id), notInArray(featureRequests.status, ["analyzing", "prd_generating", ...POST_TRIAGE_PHASES] as any)));
 
       const context = threads.map(t =>
         `Q: ${t.question}\nA: ${t.answer ?? "(unanswered)"}`
@@ -134,7 +137,9 @@ export const clarificationAnsweredWorkflow = inngest.createFunction(
 
       // proceed — generate PRD
       await writeStep(ctx, "prd", "running", { label: "Generating product requirements" });
-      await db.update(featureRequests).set({ status: "prd_generating" }).where(eq(featureRequests.id, id));
+      await db.update(featureRequests)
+        .set({ status: "prd_generating" })
+        .where(and(eq(featureRequests.id, id), notInArray(featureRequests.status, [...POST_TRIAGE_PHASES] as any)));
 
       const prd = await step.run("generate-prd", async () => {
         return await generateObjectResilient({
