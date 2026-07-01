@@ -69,15 +69,32 @@ export const organizationRouter = router({
 
       if (!res?.id) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
+      // ⭐ Explicit membership safety guard — ensure creator has "owner" role
+      // regardless of BetterAuth's auto-assignment behavior.
+      await db.insert(member).values({
+        id: `${ctx.session.user.id}-${res.id}`,
+        organizationId: res.id,
+        userId: ctx.session.user.id,
+        role: "owner",
+        createdAt: new Date(),
+      }).onConflictDoNothing();
+
       await (auth as Auth).api.setActiveOrganization({
         headers: ctx.headers,
         body: { organizationId: res.id },
       });
 
+      // ⭐ HARD CREDIT SEEDING: all FREE defaults explicit — never null.
+      // A null aiCreditsLimit makes every AI action fail with CreditsExhaustedError.
       await db.insert(workspaceSettings).values({
         organizationId: res.id,
         portalSlug: finalSlug,
         plan: "FREE",
+        aiCreditsUsed: 0,
+        aiCreditsLimit: 500,
+        repoLimit: 3,
+        memberLimit: 10,
+        billingStatus: "active",
       }).onConflictDoNothing({ target: workspaceSettings.organizationId });
 
       return res;

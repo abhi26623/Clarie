@@ -24,6 +24,7 @@ DESIGN DIRECTION — ShipFlow (read before writing any UI):
 - Status = small mono pill tags (use the existing 7-tier badge system).
 - Multi-panel pages use fixed column ratios; the action/decision column is sticky.
 - Requirement Coverage blocks use gradual revelation (accordion collapsed by default when 100% met, expanded when partial or not_met).
+- Workspace switcher: the single org-control in the TopBar. Use the existing Radix `DropdownMenu` + native `<dialog>` pattern (see `ShortcutModal.tsx`). Tokens only: `bg-canvas`, `text-ink`, `border-subtle`, `var(--font-sans)`. No info-blue, no gradient text, no new stacking contexts. Separator via `border-subtle`. Badge: accent checkmark only on the active org.
 
 **MOTION** (Benji Taylor "Family Values" — 3 principles, apply deliberately):
 1. Gradual revelation — never dump all info at once; reveal detail when relevant so context is never lost. Every tap feels intentional (slide-overs, expand-on-demand, progressive setup bar, status-driven center pane).

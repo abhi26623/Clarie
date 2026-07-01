@@ -17,6 +17,7 @@
 9. **Inngest for long work.** Anything slow (PRD gen, task gen, repo analysis, reviews, readiness) runs as a step function and records `workflow_steps` scoped by `entityId`.
 10. **AI calls go through `packages/ai` `safeGenerate`** (schema-repair retry). Never call the model raw with an unvalidated schema.
 11. **PRD Acceptance Criteria must remain structured** (`{ id, text }[]`). AI PR reviews (`review.ts`) must reconcile against the canonical PRD criteria list and enforce code evidence guards (`FILE_REF_RE`).
+12. **org = workspace.** Workspace creation (`organization.create`) MUST hard-seed `workspace_settings` with exact FREE defaults (`aiCreditsUsed: 0`, `aiCreditsLimit: 500`, `repoLimit: 3`, `memberLimit: 10`, `plan: "FREE"`). Never rely on DB defaults for credit columns — a `null` aiCreditsLimit fails every AI call instantly. ALL data queries scope by the active org via `ctx.orgId` (session-persisted). See `docs/features/workspaces.md`.
 
 ---
 
