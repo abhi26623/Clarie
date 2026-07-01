@@ -23,7 +23,7 @@ export function Sidebar({ className = "" }: { className?: string }) {
   return (
     <aside className={`flex flex-col border-r border-subtle bg-canvas ${className}`}>
       <div className="flex h-14 shrink-0 items-center px-4 border-b border-subtle">
-        <img src="/icon.png" alt="Claire Logo" className="h-8 w-auto object-contain" />
+        <img src="/logo.png" alt="Claire Logo" className="h-8 w-auto object-contain" />
       </div>
       <nav className="flex-1 overflow-y-auto p-3 space-y-1">
         {navItems.map((item) => {

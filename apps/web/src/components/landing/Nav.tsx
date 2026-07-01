@@ -40,7 +40,7 @@ export function Nav() {
       >
         {/* Wordmark */}
         <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
-          <img src="/icon.png" alt="Claire Logo" style={{ height: 72, width: "auto", objectFit: "contain" }} />
+          <img src="/logo.png" alt="Claire Logo" style={{ height: 72, width: "auto", objectFit: "contain" }} />
         </Link>
 
         {/* Center nav links */}
