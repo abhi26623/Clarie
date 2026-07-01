@@ -102,17 +102,17 @@ const decisionSchema = z.object({
 });
 
 const prdSchema = z.object({
-  problemStatement: z.string(),
-  goals: z.array(z.string()),
-  nonGoals: z.array(z.string()),
-  userStories: z.array(z.string()),
-  acceptanceCriteria: z.array(z.object({ id: z.string(), text: z.string() })),
-  edgeCases: z.array(z.string()),
-  successMetrics: z.array(z.string()),
+  problemStatement: z.string().describe("2-3 concise sentences explaining the core problem."),
+  goals: z.array(z.string().describe("One concise sentence per goal.")),
+  nonGoals: z.array(z.string().describe("One concise sentence per non-goal.")),
+  userStories: z.array(z.string().describe("One concise sentence per user story.")),
+  acceptanceCriteria: z.array(z.object({ id: z.string(), text: z.string().describe("One concise sentence per criterion.") })),
+  edgeCases: z.array(z.string().describe("One concise sentence per edge case.")),
+  successMetrics: z.array(z.string().describe("One concise sentence per metric.")),
 });
 
 export const intakeWorkflow = inngest.createFunction(
-  { id: "feature-intake", retries: 2, timeouts: { finish: "55s" } },
+  { id: "feature-intake", retries: 2, timeouts: { finish: "4m" } },
   { event: "feature/intake" },
   async ({ event, step }) => {
     const id = event.data.featureRequestId as number;
@@ -133,9 +133,9 @@ export const intakeWorkflow = inngest.createFunction(
           schema: decisionSchema,
           system: TRIAGE_SYSTEM_PROMPT,
           prompt: `Feature request title: "${req.title}"\nDetails: "${req.body}"${existingContext}\n\nClassify and decide how to handle it.`,
-          modelPurpose: "default",
+          modelPurpose: "light",
           maxAttempts: 1,
-          timeoutMs: 20_000,
+          timeoutMs: 30_000,
         });
       });
 
@@ -214,10 +214,10 @@ export const intakeWorkflow = inngest.createFunction(
         const prd = await generateObjectResilient({
           schema: prdSchema,
           system: "You are a senior product manager. Write a thorough PRD from the feature request below. Generate acceptanceCriteria as an array of objects with a short unique slug id (e.g. 'auth-redirect', 'rate-limit-header') and a text field. Never use bare numbers as ids.",
-          prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\nAI reasoning: "${result.reasoning}"\n\nGenerate a complete PRD.`,
+          prompt: `Feature: "${req.title}"\nDetails: "${req.body}"\nAI reasoning: "${result.reasoning}"\n\nGenerate a complete PRD. Generate 3-5 goals, 3-6 acceptance criteria, and 2-4 edge cases to keep the PRD rich but focused.`,
           modelPurpose: "default",
           maxAttempts: 1,
-          timeoutMs: 48_000,
+          timeoutMs: 55_000,
         });
 
         await db.insert(prds).values({
