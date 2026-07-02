@@ -209,32 +209,14 @@ export const organizationRouter = router({
   getSetupState: protectedOrgProcedure.query(async ({ ctx }) => {
     const orgId = ctx.orgId;
     
-    const [settings] = await db.select().from(workspaceSettings).where(eq(workspaceSettings.organizationId, orgId));
-  
-    const [featureRow] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(featureRequests)
-      .where(eq(featureRequests.organizationId, orgId));
-  
-    const [repoRow] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(repositories)
-      .where(eq(repositories.organizationId, orgId));
-  
-    const [memberRow] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(member)
-      .where(eq(member.organizationId, orgId));
-  
-    const [pendingInviteRow] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(invitation)
-      .where(
-        and(
-          eq(invitation.organizationId, orgId),
-          eq(invitation.status, "pending"),
-        ),
-      );
+    const [[settings], [featureRow], [repoRow], [memberRow], [pendingInviteRow]] =
+      await Promise.all([
+        db.select().from(workspaceSettings).where(eq(workspaceSettings.organizationId, orgId)),
+        db.select({ count: sql<number>`count(*)::int` }).from(featureRequests).where(eq(featureRequests.organizationId, orgId)),
+        db.select({ count: sql<number>`count(*)::int` }).from(repositories).where(eq(repositories.organizationId, orgId)),
+        db.select({ count: sql<number>`count(*)::int` }).from(member).where(eq(member.organizationId, orgId)),
+        db.select({ count: sql<number>`count(*)::int` }).from(invitation).where(and(eq(invitation.organizationId, orgId), eq(invitation.status, "pending"))),
+      ]);
   
     const featureCount = featureRow?.count ?? 0;
     const repoCount = repoRow?.count ?? 0;

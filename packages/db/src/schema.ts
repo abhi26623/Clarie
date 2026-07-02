@@ -9,6 +9,7 @@ import {
   boolean,
   pgEnum,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { organization, user } from "./auth-schema";
@@ -54,6 +55,8 @@ export const featureRequests = pgTable("feature_requests", {
   createdAt: timestamp("created_at", { mode: "string" }).defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "string" }).defaultNow(),
 }, (table) => ({
+  idx_fr_org_created: index("idx_fr_org_created").on(table.organizationId, table.createdAt),
+  idx_fr_org_status: index("idx_fr_org_status").on(table.organizationId, table.status),
   featureRequestsOrgIdOrganizationIdFk: foreignKey({
     columns: [table.organizationId],
     foreignColumns: [organization.id],
@@ -77,7 +80,9 @@ export const workflowSteps = pgTable("workflow_steps", {
   durationMs: integer("duration_ms"),
   partialResult: jsonb("partial_result"),
   createdAt: timestamp("created_at", { mode: "string" }).defaultNow(),
-});
+}, (table) => ({
+  idx_ws_entity_step: index("idx_ws_entity_step").on(table.entityType, table.entityId, table.step),
+}));
 
 /* ---------- Clarification threads ---------- */
 /* VERIFY against existing file before overwriting */
@@ -167,6 +172,7 @@ export const tasks = pgTable("tasks", {
   order: integer("order").default(0),
   createdAt: timestamp("created_at", { mode: "string" }).defaultNow(),
 }, (table) => ({
+  idx_task_feature: index("idx_task_feature").on(table.featureRequestId),
   tasksFeatureRequestIdFk: foreignKey({
     columns: [table.featureRequestId],
     foreignColumns: [featureRequests.id],
