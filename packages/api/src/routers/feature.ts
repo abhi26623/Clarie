@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { router, publicProcedure, protectedOrgProcedure } from "../trpc";
-import { db, featureRequests, clarificationThreads, workspaceSettings, workflowSteps, member, AI_CREDIT_COSTS, getRemainingCredits, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL, featureStatus } from "@claire/db";
+import { db, featureRequests, clarificationThreads, workspaceSettings, workflowSteps, member, AI_CREDIT_COSTS, getRemainingCredits, consumeAiCredits, CreditsExhaustedError, CREDITS_EXHAUSTED_SENTINEL, featureStatus, organization } from "@claire/db";
 import { TRPCError } from "@trpc/server";
 import { eq, and, desc, isNull, or, inArray, lt, notInArray } from "drizzle-orm";
 import { inngest } from "@claire/jobs";
 import { ensureActiveOrganization } from "@claire/auth";
-import { DEMO_EMAIL, DEMO_ORG_ID } from "@claire/auth/demo";
+import { DEMO_EMAIL, DEMO_ORG_ID, DEMO_ORG_SLUG } from "@claire/auth/demo";
 import { generateObjectResilient } from "@claire/ai";
 import { POST_TRIAGE_PHASES, getWorkspaceExistingFeaturesContext, TRIAGE_SYSTEM_PROMPT, decisionSchema } from "../lib/triage";
 
@@ -60,7 +60,12 @@ export const featureRouter = router({
 
         if (ctx.session?.user?.email === DEMO_EMAIL) {
           const check = await ensureActiveOrganization(ctx.session.user.id, ctx.session.session.id);
-          if (check?.orgId !== DEMO_ORG_ID) {
+          const [demoOrg] = await db
+            .select({ id: organization.id })
+            .from(organization)
+            .where(eq(organization.slug, DEMO_ORG_SLUG))
+            .limit(1);
+          if (!demoOrg || check?.orgId !== demoOrg.id) {
             throw new TRPCError({
               code: "FORBIDDEN",
               message: "Demo account is restricted to the demo workspace.",
