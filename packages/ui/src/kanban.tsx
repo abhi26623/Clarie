@@ -238,7 +238,7 @@ function TaskCard({
               <DropdownMenu.Content className="kanban-popover-content" sideOffset={4}>
                 <DropdownMenu.Item
                   className="kanban-popover-item"
-                  onSelect={() => onAssign(task.id, null, true)}
+                  disabled
                   title="Flags this task for AI-assisted development — routing only, not automated."
                 >
                   <div className="flex items-center gap-2">
