@@ -14,6 +14,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Check better-auth session token presence optimistically
+  const sessionCookie = 
+    request.cookies.get("better-auth.session_token")?.value || 
+    request.cookies.get("__Secure-better-auth.session_token")?.value;
+
+  // Redirect authenticated users away from auth pages
+  if (sessionCookie && (pathname === "/sign-in" || pathname === "/sign-up")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
   // Public non-auth routes and auth pages
   if (
     pathname === "/" ||
@@ -24,11 +34,6 @@ export async function middleware(request: NextRequest) {
   ) {
     return NextResponse.next();
   }
-
-  // Check better-auth session token presence optimistically
-  const sessionCookie = 
-    request.cookies.get("better-auth.session_token")?.value || 
-    request.cookies.get("__Secure-better-auth.session_token")?.value;
 
   // Unauthenticated users trying to access protected routes (like /dashboard) get redirected
   if (!sessionCookie) {
