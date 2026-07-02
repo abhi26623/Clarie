@@ -11,7 +11,7 @@ export async function createContext(opts: { headers: Headers }) {
   let orgPromise: ReturnType<typeof ensureActiveOrganization> | null = null;
   const getActiveOrg = () => {
     if (!session?.user) return Promise.resolve(null);
-    if (!orgPromise) orgPromise = ensureActiveOrganization(session.user.id, session.session.id);
+    if (!orgPromise) orgPromise = ensureActiveOrganization(session.user.id, session.session.id, session.session.activeOrganizationId);
     return orgPromise;
   };
   return { session, headers: opts.headers, getActiveOrg };

@@ -42,30 +42,30 @@ export type Auth = typeof auth;
 export async function ensureActiveOrganization(
   userId: string,
   sessionId: string,
+  knownActiveOrgId?: string | null,   // NEW: from better-auth's resolved session
 ): Promise<{ orgId: string; memberRole: string } | null> {
-  // 1. Load current session row from DB
-  const [sess] = await db.select().from(session).where(eq(session.id, sessionId));
-  if (!sess) return null;
-
-  if (sess.activeOrganizationId) {
-    // Verify the user is actually a member of that org
-    const [memb] = await db.select().from(member).where(and(
-      eq(member.organizationId, sess.activeOrganizationId),
-      eq(member.userId, userId),
-    ));
-    // Zero-write fast path — role is free here
-    if (memb) return { orgId: sess.activeOrganizationId, memberRole: memb.role };
+  // Prefer the active org already resolved by better-auth's getSession.
+  let activeOrgId = knownActiveOrgId ?? null;
+  if (!activeOrgId) {
+    const [sess] = await db.select().from(session).where(eq(session.id, sessionId));
+    if (!sess) return null;
+    activeOrgId = sess.activeOrganizationId ?? null;
   }
 
-  // If missing or invalid, query the member table for the user's first org
+  if (activeOrgId) {
+    const [memb] = await db.select().from(member).where(and(
+      eq(member.organizationId, activeOrgId),
+      eq(member.userId, userId),
+    ));
+    if (memb) return { orgId: activeOrgId, memberRole: memb.role };
+  }
+
+  // Fallback: user's first org (only when no valid active org is known). Persist it.
   const [firstMemb] = await db.select().from(member).where(eq(member.userId, userId)).limit(1);
   if (!firstMemb) return null;
-
-  // Update the current session row with that organization id
   await db.update(session)
     .set({ activeOrganizationId: firstMemb.organizationId })
     .where(eq(session.id, sessionId));
-
   return { orgId: firstMemb.organizationId, memberRole: firstMemb.role };
 }
 
