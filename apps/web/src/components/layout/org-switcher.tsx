@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
 import { authClient } from "@claire/auth/client";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ── Create Workspace Dialog ────────────────────────────────────────────────
 function CreateWorkspaceDialog({
@@ -167,6 +168,7 @@ function CreateWorkspaceDialog({
 export function OrgSwitcher() {
   const router = useRouter();
   const utils = trpc.useUtils();
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = React.useState(false);
 
   const { data: orgs, isLoading } = trpc.organization.list.useQuery();
@@ -179,9 +181,10 @@ export function OrgSwitcher() {
   const handleSwitch = async (orgId: string) => {
     if (orgId === activeOrgId) return;
     await switchMutation.mutateAsync({ organizationId: orgId });
-    await utils.invalidate();
-    await refetchSession();
+    await queryClient.cancelQueries();
     router.push("/dashboard");
+    await refetchSession();
+    await utils.invalidate();
     router.refresh();
   };
 
