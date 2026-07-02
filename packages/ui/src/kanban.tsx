@@ -212,10 +212,13 @@ function TaskCard({
             <DropdownMenu.Trigger asChild>
               <button className="btn btn-ghost px-2 py-1 h-auto text-xs text-ink-secondary hover:text-ink flex items-center gap-1.5 border border-transparent hover:border-border rounded">
                 {task.assignedToAI ? (
-                  <>
+                  <span
+                    title="Flags this task for AI-assisted development — routing only, not automated."
+                    className="flex items-center gap-1.5"
+                  >
                     <span className="badge__dot badge__dot--pulse text-status-info-fg" />
                     <span className="font-mono text-xs hidden sm:inline">AI Agent</span>
-                  </>
+                  </span>
                 ) : task.assigneeId ? (
                   <>
                     <User size={13} className="text-ink-tertiary" />
@@ -236,6 +239,7 @@ function TaskCard({
                 <DropdownMenu.Item
                   className="kanban-popover-item"
                   onSelect={() => onAssign(task.id, null, true)}
+                  title="Flags this task for AI-assisted development — routing only, not automated."
                 >
                   <div className="flex items-center gap-2">
                     <Bot size={14} className="text-status-info-fg" />
