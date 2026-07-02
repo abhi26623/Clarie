@@ -181,6 +181,7 @@ export function OrgSwitcher() {
     await switchMutation.mutateAsync({ organizationId: orgId });
     await utils.invalidate();
     await refetchSession();
+    router.push("/dashboard");
     router.refresh();
   };
 
