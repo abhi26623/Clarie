@@ -2,6 +2,7 @@ import { Fraunces, DM_Sans, DM_Mono } from "next/font/google";
 import { Providers } from "../lib/provider";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -38,6 +39,7 @@ export default function RootLayout({
       <body>
         <Providers>{children}</Providers>
         <Toaster richColors position="top-center" />
+        <SpeedInsights />
       </body>
     </html>
   );
