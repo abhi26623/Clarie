@@ -141,7 +141,48 @@ function TaskCard({
 
       {/* Header: Title */}
       <div className="kanban-card__header pr-8">
-        <span className="kanban-card__title">{task.title}</span>
+        {(task.description || task.suggestedBranch) && !isDragging ? (
+          <HoverCard.Root openDelay={150} closeDelay={0}>
+            <HoverCard.Trigger asChild>
+              <span className="kanban-card__title" tabIndex={0}>{task.title}</span>
+            </HoverCard.Trigger>
+            <HoverCard.Portal>
+              <HoverCard.Content
+                side="right"
+                align="start"
+                sideOffset={10}
+                collisionPadding={12}
+                avoidCollisions={true}
+                className="z-tooltip w-72 bg-surface border border-border shadow-md rounded-md p-3 text-sm flex flex-col gap-3 hover-card-content"
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
+              >
+                {task.description && (
+                  <p className="text-xs text-ink-secondary leading-relaxed line-clamp-4">
+                    {task.description}
+                  </p>
+                )}
+                
+                {task.suggestedBranch && (
+                  <div className={`flex flex-col gap-1.5 ${task.description ? "border-t border-border-subtle pt-2 mt-1" : ""}`}>
+                    <span className="text-[10px] text-ink-tertiary font-medium uppercase tracking-wider">Suggested Branch</span>
+                    <div className="flex items-center gap-2 bg-canvas border border-border-subtle rounded px-2 py-1.5">
+                      <code className="text-[11px] text-ink font-mono flex-1 truncate" title={task.suggestedBranch}>{task.suggestedBranch}</code>
+                      <button onClick={handleCopyBranch} className="text-ink-tertiary hover:text-ink pointer-events-auto outline-none focus:ring-1 focus:ring-accent rounded p-0.5">
+                         {copied ? <Check size={12} className="text-status-success-fg" /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-ink-tertiary leading-snug">
+                      Create & push this branch in GitHub. Make sure your PR body includes <code className="font-mono text-ink">claire-request-{task.featureRequestId}</code> — Claire auto-links the PR to this task.
+                    </p>
+                  </div>
+                )}
+              </HoverCard.Content>
+            </HoverCard.Portal>
+          </HoverCard.Root>
+        ) : (
+          <span className="kanban-card__title">{task.title}</span>
+        )}
       </div>
 
       {/* Footer: Meta Row & Assignee */}
@@ -227,48 +268,7 @@ function TaskCard({
         </div>
       </div>
 
-      {/* Hover Popup using Radix HoverCard for Portal & Collision Detection */}
-      {/* We use a visually hidden trigger that fills the card to avoid interfering with dnd-kit refs on the card itself */}
-      {(task.description || task.suggestedBranch) && !isDragging && (
-        <HoverCard.Root openDelay={150} closeDelay={0}>
-          <HoverCard.Trigger asChild>
-            <div className="absolute inset-0 z-0" aria-hidden="true" tabIndex={-1} />
-          </HoverCard.Trigger>
-          <HoverCard.Portal>
-            <HoverCard.Content
-              side="right"
-              align="start"
-              sideOffset={10}
-              collisionPadding={12}
-              avoidCollisions={true}
-              className="z-tooltip w-72 bg-surface border border-border shadow-md rounded-md p-3 text-sm flex flex-col gap-3 hover-card-content"
-              onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
-            >
-              {task.description && (
-                <p className="text-xs text-ink-secondary leading-relaxed line-clamp-4">
-                  {task.description}
-                </p>
-              )}
-              
-              {task.suggestedBranch && (
-                <div className={`flex flex-col gap-1.5 ${task.description ? "border-t border-border-subtle pt-2 mt-1" : ""}`}>
-                  <span className="text-[10px] text-ink-tertiary font-medium uppercase tracking-wider">Suggested Branch</span>
-                  <div className="flex items-center gap-2 bg-canvas border border-border-subtle rounded px-2 py-1.5">
-                    <code className="text-[11px] text-ink font-mono flex-1 truncate" title={task.suggestedBranch}>{task.suggestedBranch}</code>
-                    <button onClick={handleCopyBranch} className="text-ink-tertiary hover:text-ink pointer-events-auto outline-none focus:ring-1 focus:ring-accent rounded p-0.5">
-                       {copied ? <Check size={12} className="text-status-success-fg" /> : <Copy size={12} />}
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-ink-tertiary leading-snug">
-                    Create & push this branch in GitHub. Make sure your PR body includes <code className="font-mono text-ink">claire-request-{task.featureRequestId}</code> — Claire auto-links the PR to this task.
-                  </p>
-                </div>
-              )}
-            </HoverCard.Content>
-          </HoverCard.Portal>
-        </HoverCard.Root>
-      )}
+
     </div>
   );
 }
