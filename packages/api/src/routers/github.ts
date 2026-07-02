@@ -2,10 +2,11 @@ import { z } from "zod";
 import { router, protectedOrgProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { db, repositories, pullRequests, featureRequests, workspaceSettings } from "@claire/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { env } from "@claire/config/env";
 import crypto from "node:crypto";
 import { getInstallationOctokit, listRepos as listGithubRepos } from "../lib/github";
+import { parseClaireRequestId } from "../lib/pr-ingest";
 
 export const githubRouter = router({
   getInstallUrl: protectedOrgProcedure
@@ -28,7 +29,9 @@ export const githubRouter = router({
       }
       const [payload, signature] = parts;
       const expectedSignature = crypto.createHmac("sha256", env.BETTER_AUTH_SECRET).update(payload).digest("hex");
-      if (signature !== expectedSignature) {
+      const sigBuf = Buffer.from(signature);
+      const expBuf = Buffer.from(expectedSignature);
+      if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid state signature" });
       }
       const [orgId, , timestampStr] = payload.split(":");
@@ -104,6 +107,7 @@ export const githubRouter = router({
         webhookActive: true,
       }).onConflictDoUpdate({
         target: [repositories.githubId, repositories.installationId],
+        targetWhere: sql`${repositories.githubId} IS NOT NULL AND ${repositories.installationId} IS NOT NULL`,
         set: {
           fullName: input.fullName,
           name: input.name,
@@ -216,14 +220,11 @@ export const githubRouter = router({
         const state = pr.state === "open" ? "open" : pr.merged_at ? "merged" : "closed";
 
         let featureRequestId: number | null = null;
-        if (pr.body) {
-          const match = pr.body.match(/claire-request-(\d+)/);
-          if (match && match[1]) {
-            const possibleId = parseInt(match[1], 10);
-            const [feat] = await db.select().from(featureRequests)
-              .where(and(eq(featureRequests.id, possibleId), eq(featureRequests.organizationId, ctx.orgId)));
-            if (feat) featureRequestId = feat.id;
-          }
+        const parsedId = parseClaireRequestId(pr.body);
+        if (parsedId !== null) {
+          const [feat] = await db.select().from(featureRequests)
+            .where(and(eq(featureRequests.id, parsedId), eq(featureRequests.organizationId, ctx.orgId)));
+          if (feat) featureRequestId = feat.id;
         }
 
         const [existing] = await db.select().from(pullRequests)

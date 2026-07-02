@@ -60,7 +60,11 @@ export const approvalRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       await assertAdminRole(ctx.session.user.id, ctx.orgId);
-      await assertFeatureOrg(input.featureId, ctx.orgId);
+      const feature = await assertFeatureOrg(input.featureId, ctx.orgId);
+
+      if (feature.status !== "ready_for_approval") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This feature is not ready for approval." });
+      }
 
       if (input.decision === "needs_changes" && (!input.notes || input.notes.trim() === "")) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Notes are required when sending back for fixes" });

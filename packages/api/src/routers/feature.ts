@@ -358,7 +358,7 @@ export const featureRouter = router({
       }
 
       const [updated] = await db.update(featureRequests)
-        .set({ status: "received", aiReasoning: null, aiDecision: null })
+        .set({ status: "prd_generating", aiReasoning: null, aiDecision: null })
         .where(and(eq(featureRequests.id, input.id), eq(featureRequests.organizationId, ctx.orgId)))
         .returning();
 
@@ -371,7 +371,7 @@ export const featureRouter = router({
       });
 
       try {
-        await inngest.send({ name: "feature/intake", data: { featureRequestId: input.id, organizationId: ctx.orgId } });
+        await inngest.send({ name: "feature/prd.generate", data: { featureRequestId: input.id, organizationId: ctx.orgId } });
       } catch (err) {
         console.error("Failed to send retry inngest event:", err);
       }
@@ -398,7 +398,7 @@ export const featureRouter = router({
       const stuckRows = await db.select().from(featureRequests)
         .where(and(
           eq(featureRequests.organizationId, ctx.orgId),
-          inArray(featureRequests.status, ["analyzing", "prd_generating"]),
+          inArray(featureRequests.status, ["analyzing", "prd_generating", "tasks_generating"]),
           lt(featureRequests.updatedAt, tenMinutesAgo),
         ));
 

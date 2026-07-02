@@ -6,8 +6,7 @@ Claire is an AI-assisted product delivery platform. You describe a feature in pl
 
 > **Core loop:** idea → AI clarifies → PRD → tasks → code → AI review → approve → **ship** 🚢
 
-![Claire pipeline](docs/pipeline.gif)
-<!-- TODO: record the pipeline gif after deploy and drop it at docs/pipeline.gif -->
+
 
 ---
 
@@ -15,9 +14,9 @@ Claire is an AI-assisted product delivery platform. You describe a feature in pl
 
 | | |
 |---|---|
-| **Live URL** | <!-- TODO: add Vercel URL after deploy --> |
-| **Demo login** | `demo@claire.app` / `demo123456` |
-| **Demo video** | **https://www.youtube.com/watch?v=QrYOWCcL3cU** |
+| **Live URL** | https://clarie-web-mah2.vercel.app |
+| **Demo login** | `[EMAIL_ADDRESS]` / `demo123456` |
+| **Demo video** | https://youtu.be/QrYOWCcL3cU?si=krVm_FTyP2_3viA2 |
 
 The demo workspace ("Claire Demo") is pre-seeded with features spanning every stage of the pipeline, so you can explore the full lifecycle immediately after signing in.
 

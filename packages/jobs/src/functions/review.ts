@@ -6,7 +6,7 @@ import {
   postPullRequestReview,
   postPullRequestComment,
 } from "@claire/github";
-import { generateObjectResilient } from "@claire/ai";
+import { generateObjectResilient, getModelName } from "@claire/ai";
 import { writeStep } from "../run-workflow";
 import { z } from "zod";
 
@@ -162,6 +162,33 @@ export const prReviewWorkflow = inngest.createFunction(
 
       const { pr, feature, prd, previousReviews } = contextData;
       const reviewNumber = (previousReviews[0]?.reviewNumber ?? 0) + 1;
+
+      const gate = await step.run("consume-review-credits", async () => {
+        const orgId = contextData.feature?.organizationId
+          ?? (await db.query.repositories.findFirst({
+              where: eq(repositories.id, contextData.pr.repositoryId),
+            }))?.organizationId;
+        if (!orgId) return { ok: true as const };          // unlinked PR — no org to charge, allow
+        const cost = reviewNumber > 1 ? AI_CREDIT_COSTS.reReview : AI_CREDIT_COSTS.review;
+        try {
+          await consumeAiCredits(orgId, cost);
+          return { ok: true as const };
+        } catch (err) {
+          if (err instanceof CreditsExhaustedError) return { ok: false as const, msg: err.message };
+          throw err;
+        }
+      });
+
+      if (!gate.ok) {
+        await step.run("mark-credits-exhausted", async () => {
+          if (contextData.pr.featureRequestId) {
+            await db.update(featureRequests)
+              .set({ aiReasoning: `${CREDITS_EXHAUSTED_SENTINEL}${gate.msg}` })
+              .where(eq(featureRequests.id, contextData.pr.featureRequestId));
+          }
+        });
+        return; // ABORT before fetch_diffs / run_ai / post_review — no generation, no GitHub post, no charge-after-the-fact
+      }
 
       await logStep("fetching_context", "done", "Fetched context");
       await logStep("fetching_diff", "running", "Fetching PR diff files");
@@ -326,37 +353,6 @@ export const prReviewWorkflow = inngest.createFunction(
 
       await logStep("analyzing_code", "done", "Analyzed code");
 
-      // ------------------------------------------------------------------
-      // Step 4b: Consume AI credits AFTER successful review generation.
-      // Uses a unique step.run name so Inngest memoises this separately from
-      // any other consume step. reviewNumber > 1 = re-review (same cost today,
-      // named separately for future cost divergence).
-      // ------------------------------------------------------------------
-      await step.run("consume-review-credits", async () => {
-        const orgId = contextData.feature?.organizationId
-          ?? (await db.query.repositories.findFirst({
-              where: eq(repositories.id, contextData.pr.repositoryId),
-            }))?.organizationId;
-        if (!orgId) return; // unlinked PR with no org context — skip gracefully
-
-        const cost = reviewNumber > 1 ? AI_CREDIT_COSTS.reReview : AI_CREDIT_COSTS.review;
-        try {
-          await consumeAiCredits(orgId, cost);
-        } catch (err) {
-          if (err instanceof CreditsExhaustedError) {
-            // Credits ran out mid-review: the review is already saved. Surface the
-            // sentinel on the feature so the UI shows an upgrade CTA.
-            if (contextData.pr.featureRequestId) {
-              await db.update(featureRequests)
-                .set({ aiReasoning: `${CREDITS_EXHAUSTED_SENTINEL}${err.message}` })
-                .where(eq(featureRequests.id, contextData.pr.featureRequestId));
-            }
-            return; // don't rethrow — review was saved successfully, just credits exhausted
-          }
-          throw err;
-        }
-      });
-
       await logStep("saving_results", "running", "Saving review results");
 
       // ------------------------------------------------------------------
@@ -373,7 +369,7 @@ export const prReviewWorkflow = inngest.createFunction(
             summary: reviewResult.summary,
             criteriaVerdicts: reviewResult.criteriaVerdicts ?? null,
             completedAt: new Date().toISOString(),
-            model: "gemini/openrouter",
+            model: getModelName("premiumReview"),
           })
           .where(eq(aiReviews.id, reviewId!));
 

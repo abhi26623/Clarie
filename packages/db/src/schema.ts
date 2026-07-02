@@ -53,7 +53,7 @@ export const featureRequests = pgTable("feature_requests", {
   timeToShipDays: integer("time_to_ship_days"),
   trackingToken: text("tracking_token"),
   createdAt: timestamp("created_at", { mode: "string" }).defaultNow(),
-  updatedAt: timestamp("updated_at", { mode: "string" }).defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "string" }).defaultNow().$onUpdate(() => new Date().toISOString()),
 }, (table) => ({
   idx_fr_org_created: index("idx_fr_org_created").on(table.organizationId, table.createdAt),
   idx_fr_org_status: index("idx_fr_org_status").on(table.organizationId, table.status),

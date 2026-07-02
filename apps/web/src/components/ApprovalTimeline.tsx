@@ -11,7 +11,7 @@ import {
   History,
 } from "lucide-react";
 
-export function ApprovalTimeline({ featureId }: { featureId: number }) {
+export function ApprovalTimeline({ featureId, hideHeader = false }: { featureId: number; hideHeader?: boolean }) {
   const { data: history = [], isLoading } = trpc.approval.listByFeature.useQuery(
     { featureId },
     { enabled: !!featureId }
@@ -21,12 +21,14 @@ export function ApprovalTimeline({ featureId }: { featureId: number }) {
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <h2
-          className="font-sans font-semibold"
-          style={{ fontSize: "var(--text-lg)", color: "var(--ink)" }}
-        >
-          Approval history
-        </h2>
+        {!hideHeader && (
+          <h2
+            className="font-sans font-semibold"
+            style={{ fontSize: "var(--text-lg)", color: "var(--ink)" }}
+          >
+            Approval history
+          </h2>
+        )}
         <div
           className="rounded-lg p-4 space-y-3"
           style={{ border: "1px solid var(--border)", background: "var(--surface)" }}
@@ -45,26 +47,9 @@ export function ApprovalTimeline({ featureId }: { featureId: number }) {
 
   if (history.length === 0) {
     return (
-      <div className="space-y-3">
-        <h2
-          className="font-sans font-semibold"
-          style={{ fontSize: "var(--text-lg)", color: "var(--ink)" }}
-        >
-          Approval history
-        </h2>
-        <div
-          className="rounded-lg p-6 text-center flex flex-col items-center justify-center gap-2"
-          style={{ border: "1px solid var(--border)", background: "var(--surface)" }}
-        >
-          <History size={20} style={{ color: "var(--ink-tertiary)" }} />
-          <p className="text-sm font-medium" style={{ color: "var(--ink)" }}>
-            No approval decisions yet
-          </p>
-          <p className="text-xs max-w-sm" style={{ color: "var(--ink-secondary)" }}>
-            When an admin approves, rejects, or sends back this feature for changes, the full decision history will appear here.
-          </p>
-        </div>
-      </div>
+      <p className="text-xs font-sans" style={{ color: "var(--ink-tertiary)" }}>
+        No approval activity yet.
+      </p>
     );
   }
 
@@ -72,12 +57,14 @@ export function ApprovalTimeline({ featureId }: { featureId: number }) {
 
   return (
     <div className="space-y-3">
-      <h2
-        className="font-sans font-semibold"
-        style={{ fontSize: "var(--text-lg)", color: "var(--ink)" }}
-      >
-        Approval history
-      </h2>
+      {!hideHeader && (
+        <h2
+          className="font-sans font-semibold"
+          style={{ fontSize: "var(--text-lg)", color: "var(--ink)" }}
+        >
+          Approval history
+        </h2>
+      )}
       <div
         className="rounded-lg overflow-hidden"
         style={{ border: "1px solid var(--border)", background: "var(--surface)" }}

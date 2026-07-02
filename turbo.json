@@ -16,6 +16,7 @@
     "build": { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
     "typecheck": { "dependsOn": ["^build"] },
     "lint": {},
+    "test": { "cache": false },
     "db:generate": { "cache": false },
     "db:push": { "cache": false }
   }

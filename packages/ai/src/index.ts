@@ -20,9 +20,9 @@ function getClient() {
   return _client;
 }
 
-type ModelPurpose = "light" | "default" | "review" | "premiumReview";
+export type ModelPurpose = "light" | "default" | "review" | "premiumReview";
 
-function getModelName(purpose: ModelPurpose): string {
+export function getModelName(purpose: ModelPurpose): string {
   switch (purpose) {
     case "light": return env.OPENROUTER_MODEL_LIGHT;
     case "default": return env.OPENROUTER_MODEL_DEFAULT;

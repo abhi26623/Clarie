@@ -37,16 +37,13 @@ export async function upsertPullRequestFromWebhook(
 
   // Parse claire-request-<id> from PR body
   let featureRequestId: number | null = null;
-  if (pr?.body) {
-    const match = pr.body.match(/claire-request-(\d+)/);
-    if (match?.[1]) {
-      const id = parseInt(match[1], 10);
-      const [feat] = await db
-        .select()
-        .from(featureRequests)
-        .where(and(eq(featureRequests.id, id), eq(featureRequests.organizationId, repo.organizationId)));
-      if (feat) featureRequestId = feat.id;
-    }
+  const parsedId = parseClaireRequestId(pr?.body);
+  if (parsedId !== null) {
+    const [feat] = await db
+      .select()
+      .from(featureRequests)
+      .where(and(eq(featureRequests.id, parsedId), eq(featureRequests.organizationId, repo.organizationId)));
+    if (feat) featureRequestId = feat.id;
   }
 
   const prState: "open" | "closed" | "merged" =
@@ -88,4 +85,10 @@ export async function upsertPullRequestFromWebhook(
     githubPrNumber: pr.number,
     installationId,
   };
+}
+
+export function parseClaireRequestId(body: string | null | undefined): number | null {
+  if (!body) return null;
+  const match = body.match(/claire-request-(\d+)/);
+  return match?.[1] ? parseInt(match[1], 10) : null;
 }

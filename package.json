@@ -7,6 +7,7 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
+    "test": "pnpm --filter @claire/db test && pnpm --filter @claire/api test",
     "db:generate": "pnpm --filter @claire/db db:generate",
     "db:push": "pnpm --filter @claire/db db:push",
     "seed": "pnpm --filter web run seed",

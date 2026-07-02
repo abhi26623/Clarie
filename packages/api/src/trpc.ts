@@ -6,7 +6,13 @@ import type { Session } from "@claire/auth";
 
 export async function createContext(opts: { headers: Headers }) {
   const session = await auth.api.getSession({ headers: opts.headers });
-  return { session, headers: opts.headers };
+  let orgPromise: ReturnType<typeof ensureActiveOrganization> | null = null;
+  const getActiveOrg = () => {
+    if (!session?.user) return Promise.resolve(null);
+    if (!orgPromise) orgPromise = ensureActiveOrganization(session.user.id, session.session.id);
+    return orgPromise;
+  };
+  return { session, headers: opts.headers, getActiveOrg };
 }
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
@@ -20,7 +26,7 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 });
 
 export const protectedOrgProcedure = protectedProcedure.use(async ({ ctx, next }) => {
-  const result = await ensureActiveOrganization(ctx.session.user.id, ctx.session.session.id);
+  const result = await ctx.getActiveOrg();
   if (!result) throw new TRPCError({ code: "FORBIDDEN", message: "No active organization" });
   
   // 🔥 GLOBAL DEMO GUARD

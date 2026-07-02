@@ -13,6 +13,12 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
   trustHost: process.env.NODE_ENV === "development",
   emailAndPassword: { enabled: true },
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60, // 5 minutes
+    },
+  },
   account: {
     accountLinking: {
       enabled: true,
